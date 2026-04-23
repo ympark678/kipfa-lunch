@@ -3,24 +3,14 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzRoJPOYW8FB1Ck69hOl56aluBxNDjUAPewlsTEgIvK39y6hShhx4SU6K2enx0R29NLAQ/exec";
-const USER_MAP: Record<string, string> = {
-  "4488": "유인호", "7991": "송선애", "4611": "신동철", "1121": "이소영",
-  "5555": "문진곤", "4946": "유광열", "5015": "박영민", "2253": "조은지", "8830": "이수연",
-};
 
-// ⭐️ 카테고리별 직관적인 이모지 매핑
-const CATEGORY_EMOJI: Record<string, string> = {
-  "한식": "🍚 한식",
-  "중식": "🥢 중식",
-  "일식": "🍣 일식",
-  "양식": "🍝 양식",
-  "분식": "🥘 분식",
-  "기타": "🍽️ 기타"
-};
+// ⭐️ 위험했던 USER_MAP을 코드에서 완전히 삭제했습니다!
 
 export default function LunchApp() {
   const [pin, setPin] = useState("");
-  const [currentUser, setCurrentUser] = useState<string | null>(null);
+  // ⭐️ currentUser 대신 핀번호와 이름을 함께 기억하는 session 상태로 변경
+  const [session, setSession] = useState<{pin: string, name: string} | null>(null);
+  
   const [menus, setMenus] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<"pick" | "all">("pick");
   const [isLoading, setIsLoading] = useState(false);
@@ -83,13 +73,18 @@ export default function LunchApp() {
 
   useEffect(() => {
     const updateStickyGap = () => { if (headerRef.current) setStickyTop(Math.floor(headerRef.current.getBoundingClientRect().height) - 1); };
-    if (currentUser) { updateStickyGap(); window.addEventListener("resize", updateStickyGap); }
+    if (session) { updateStickyGap(); window.addEventListener("resize", updateStickyGap); }
     return () => window.removeEventListener("resize", updateStickyGap);
-  }, [currentUser, activeTab]);
+  }, [session, activeTab]);
 
+  // ⭐️ 로컬 스토리지에 저장된 정보로 자동 로그인
   useEffect(() => {
     const savedPin = localStorage.getItem("lunchUserPin");
-    if (savedPin && USER_MAP[savedPin]) { setCurrentUser(savedPin); fetchMenus(false); }
+    const savedName = localStorage.getItem("lunchUserName");
+    if (savedPin && savedName) { 
+      setSession({ pin: savedPin, name: savedName }); 
+      fetchMenus(false); 
+    }
   }, []);
 
   useEffect(() => {
@@ -107,9 +102,38 @@ export default function LunchApp() {
     } catch (e) { alert("데이터 로딩 실패"); } finally { hideLoader(); }
   };
 
-  const handleLogin = () => {
-    if (USER_MAP[pin]) { localStorage.setItem("lunchUserPin", pin); setCurrentUser(pin); fetchMenus(false); }
-    else alert("등록되지 않은 번호입니다.");
+  // ⭐️ 보안 인증 서버 통신 로직 추가
+  const handleLogin = async () => {
+    if (pin.length !== 4) return alert("4자리 번호를 입력해주세요.");
+    
+    showLoader("보안 인증 중...");
+    try {
+      const res = await fetch(SCRIPT_URL, { 
+        method: "POST", 
+        body: JSON.stringify({ action: "verify_pin", pin: pin }) 
+      });
+      const result = await res.json();
+      
+      if (result.success) {
+        localStorage.setItem("lunchUserPin", pin);
+        localStorage.setItem("lunchUserName", result.userName); // 받아온 이름 저장
+        setSession({ pin: pin, name: result.userName });
+        fetchMenus(false);
+      } else {
+        alert("등록되지 않은 번호입니다.");
+      }
+    } catch (e) {
+      alert("서버 연결에 실패했습니다.");
+    } finally {
+      hideLoader();
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("lunchUserPin");
+    localStorage.removeItem("lunchUserName");
+    setSession(null);
+    setPin("");
   };
 
   const checkDuplicate = (type: 'name' | 'url', value: string) => {
@@ -178,7 +202,9 @@ export default function LunchApp() {
     try {
       const action = (modalMode === "edit") ? "edit_menu" : "add_menu";
       const payload = { 
-        action, id: editTargetId, author: currentUser, visitDate: formData.visitDate, 
+        action, id: editTargetId, 
+        author: session?.name, // ⭐️ 저장할 때는 시트에서 받아온 진짜 이름을 사용
+        visitDate: formData.visitDate, 
         category: formData.category, shopName: formData.shopName.trim(), shopUrl: urlMatch ? urlMatch[1] : '', 
         menus: combinedMenus, price: `${formData.priceMin}원 ~ ${formData.priceMax}원`
       };
@@ -205,7 +231,8 @@ export default function LunchApp() {
   const toggleReaction = async (id: string, action: string) => {
     showLoader("반영 중...");
     try {
-      const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action, id, userPin: currentUser }) });
+      // ⭐️ 좋아요 누를 때는 식별을 위해 PIN 번호 사용
+      const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action, id, userPin: session?.pin }) });
       const result = await res.json();
       if (result.success) fetchMenus(true);
     } catch (e) { alert("오류"); } finally { hideLoader(); }
@@ -236,9 +263,12 @@ export default function LunchApp() {
     return { tw, nw, allF, pickNames };
   }, [menus, searchQuery, categoryFilter]);
 
-  if (!currentUser) return (
+  if (!session) return (
     <>
-      <style>{`body { font-family: 'Pretendard', -apple-system, sans-serif; background-color: #f7f9fa; margin: 0; padding: 0; color: #2c3e50; } .container { max-width: 500px; margin: 0 auto; padding: 0 20px 90px 20px; text-align: center; margin-top: 100px; } .pin-input { font-size: 24px; padding: 12px; width: 160px; text-align: center; border: 2px solid #ddd; border-radius: 12px; margin-bottom: 25px; letter-spacing: 5px; background: white; } .btn { background-color: #3498db; color: white; border: none; padding: 14px 20px; font-size: 16px; border-radius: 10px; cursor: pointer; width: 100%; font-weight: bold; transition: 0.2s; box-shadow: 0 4px 6px rgba(52,152,219,0.2); } .btn:active { transform: scale(0.98); } #a2hs-banner { position: fixed; bottom: -150px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 400px; background: rgba(44, 62, 80, 0.95); color: white; padding: 16px 20px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.25); display: flex; align-items: center; justify-content: space-between; z-index: 10000; transition: bottom 0.5s; backdrop-filter: blur(5px); box-sizing: border-box; } #a2hs-banner.show { bottom: 25px; }`}</style>
+      <style>{`body { font-family: 'Pretendard', -apple-system, sans-serif; background-color: #f7f9fa; margin: 0; padding: 0; color: #2c3e50; } .container { max-width: 500px; margin: 0 auto; padding: 0 20px 90px 20px; text-align: center; margin-top: 100px; } .pin-input { font-size: 24px; padding: 12px; width: 160px; text-align: center; border: 2px solid #ddd; border-radius: 12px; margin-bottom: 25px; letter-spacing: 5px; background: white; } .btn { background-color: #3498db; color: white; border: none; padding: 14px 20px; font-size: 16px; border-radius: 10px; cursor: pointer; width: 100%; font-weight: bold; transition: 0.2s; box-shadow: 0 4px 6px rgba(52,152,219,0.2); } .btn:active { transform: scale(0.98); } #a2hs-banner { position: fixed; bottom: -150px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 400px; background: rgba(44, 62, 80, 0.95); color: white; padding: 16px 20px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.25); display: flex; align-items: center; justify-content: space-between; z-index: 10000; transition: bottom 0.5s; backdrop-filter: blur(5px); box-sizing: border-box; } #a2hs-banner.show { bottom: 25px; } #global-loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; } .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 45px; height: 45px; animation: spin 1s linear infinite; } @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+      
+      {isLoading && <div id="global-loader"><div className="spinner"></div><div style={{fontWeight: 'bold', marginTop:'15px', color: '#2c3e50'}}>{loadingText}</div></div>}
+
       <div className="container">
         <h1 style={{marginBottom: '10px', fontSize: '26px'}}>🏢 KIPFA 점심 추천</h1>
         <p style={{color:'#7f8c8d', marginBottom:'30px'}}>휴대폰 뒷자리 4자리를 입력하세요</p>
@@ -307,7 +337,7 @@ export default function LunchApp() {
         <div ref={headerRef} className="sticky-top-area">
           <div className="header">
             <h2>KIPFA 점심 추천</h2>
-            <div><span id="user-info">👋 {USER_MAP[currentUser as string]}님</span><button className="logout-btn" onClick={() => { localStorage.removeItem("lunchUserPin"); setCurrentUser(null); }}>로그아웃</button></div>
+            <div><span id="user-info">👋 {session.name}님</span><button className="logout-btn" onClick={handleLogout}>로그아웃</button></div>
           </div>
           <div className="tabs">
             <div className={`tab ${activeTab === 'pick' ? 'active' : ''}`} onClick={() => setActiveTab('pick')}>📅 이번주/다음주 Pick</div>
@@ -328,7 +358,6 @@ export default function LunchApp() {
           <div>
             <div className="filter-section">
               <input type="text" className="search-input" placeholder="🔍 맛집 검색..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-              {/* ⭐️ 상단 필터에도 이모지 적용 */}
               <select className="category-select" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
                 <option value="all">🏷️ 전체 카테고리</option>
                 <option value="한식">🍚 한식</option>
@@ -358,7 +387,6 @@ export default function LunchApp() {
             <div className="form-group"><label>가게명</label><input type="text" placeholder="가게명 입력" value={formData.shopName} onChange={e => setFormData({...formData, shopName: e.target.value})} onBlur={e => checkDuplicate('name', e.target.value)} /></div>
             <div className="form-group"><label>지도 URL</label><input type="text" placeholder="주소를 붙여넣으세요" value={formData.shopUrl} onChange={e => setFormData({...formData, shopUrl: e.target.value})} onBlur={e => checkDuplicate('url', e.target.value)} /></div>
             <div className="form-group"><label>카테고리</label>
-              {/* ⭐️ 입력 모달창에도 이모지 적용 */}
               <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
                 <option value="한식">🍚 한식</option>
                 <option value="중식">🥢 중식</option>
@@ -427,8 +455,7 @@ export default function LunchApp() {
         )}
         {isDeleteRequested && <div className="tag-deleted">🚨 삭제 요청 검토 중: {m['삭제요청사유'] || '사유 미상'}</div>}
         <div className="tag-container">
-          {/* ⭐️ 개별 메뉴 카드 태그에도 이모지 적용 */}
-          <span className="tag">{CATEGORY_EMOJI[m['카테고리']] || m['카테고리']}</span>
+          <span className="tag">{m['카테고리']}</span>
           <span className="tag tag-date">📅 {dateStr}</span>
           {type === 'all' && isPicked && <span className="tag tag-status">🎯 Pick 완료</span>}
         </div>
@@ -439,11 +466,11 @@ export default function LunchApp() {
           <a href={m['가게URL']} target="_blank" className="map-link">🗺️ 지도/가게정보 보기</a>
           {type === 'pick' ? (
             <div className="reaction-group">
-              <button className={`like-btn ${likes.includes(currentUser as string) ? 'liked' : ''}`} onClick={() => toggleReaction(m.ID, 'toggle_like')}>
-                {likes.includes(currentUser as string) ? '❤️' : '🤍'} {likes.length}
+              <button className={`like-btn ${likes.includes(session?.pin as string) ? 'liked' : ''}`} onClick={() => toggleReaction(m.ID, 'toggle_like')}>
+                {likes.includes(session?.pin as string) ? '❤️' : '🤍'} {likes.length}
               </button>
-              <button className={`dislike-btn ${dislikes.includes(currentUser as string) ? 'liked' : ''}`} onClick={() => toggleReaction(m.ID, 'toggle_dislike')}>
-                {dislikes.includes(currentUser as string) ? '💔' : '👎'} {dislikes.length}
+              <button className={`dislike-btn ${dislikes.includes(session?.pin as string) ? 'liked' : ''}`} onClick={() => toggleReaction(m.ID, 'toggle_dislike')}>
+                {dislikes.includes(session?.pin as string) ? '💔' : '👎'} {dislikes.length}
               </button>
             </div>
           ) : (
