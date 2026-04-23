@@ -8,6 +8,16 @@ const USER_MAP: Record<string, string> = {
   "5555": "문진곤", "4946": "유광열", "5015": "박영민", "2253": "조은지", "8830": "이수연",
 };
 
+// ⭐️ 카테고리별 직관적인 이모지 매핑
+const CATEGORY_EMOJI: Record<string, string> = {
+  "한식": "🍚 한식",
+  "중식": "🥢 중식",
+  "일식": "🍣 일식",
+  "양식": "🍝 양식",
+  "분식": "🥘 분식",
+  "기타": "🍽️ 기타"
+};
+
 export default function LunchApp() {
   const [pin, setPin] = useState("");
   const [currentUser, setCurrentUser] = useState<string | null>(null);
@@ -27,8 +37,6 @@ export default function LunchApp() {
   
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
-  
-  // ⭐️ 삭제 사유 기본값도 직관적으로 변경
   const [deleteReason, setDeleteReason] = useState("폐업/이전");
 
   const [formData, setFormData] = useState({
@@ -172,8 +180,7 @@ export default function LunchApp() {
       const payload = { 
         action, id: editTargetId, author: currentUser, visitDate: formData.visitDate, 
         category: formData.category, shopName: formData.shopName.trim(), shopUrl: urlMatch ? urlMatch[1] : '', 
-        menus: combinedMenus, 
-        price: `${formData.priceMin}원 ~ ${formData.priceMax}원` // 시트에는 짧게 저장
+        menus: combinedMenus, price: `${formData.priceMin}원 ~ ${formData.priceMax}원`
       };
       const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
       const result = await res.json();
@@ -321,8 +328,15 @@ export default function LunchApp() {
           <div>
             <div className="filter-section">
               <input type="text" className="search-input" placeholder="🔍 맛집 검색..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+              {/* ⭐️ 상단 필터에도 이모지 적용 */}
               <select className="category-select" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
-                <option value="all">전체 카테고리</option><option value="한식">한식</option><option value="중식">중식</option><option value="일식">일식</option><option value="양식">양식</option><option value="분식">분식</option><option value="기타">기타</option>
+                <option value="all">🏷️ 전체 카테고리</option>
+                <option value="한식">🍚 한식</option>
+                <option value="중식">🥢 중식</option>
+                <option value="일식">🍣 일식</option>
+                <option value="양식">🍝 양식</option>
+                <option value="분식">🥘 분식</option>
+                <option value="기타">🍽️ 기타</option>
               </select>
             </div>
             {filteredData.allF.map(m => <Card key={m.ID} menu={m} type="all" />)}
@@ -344,7 +358,15 @@ export default function LunchApp() {
             <div className="form-group"><label>가게명</label><input type="text" placeholder="가게명 입력" value={formData.shopName} onChange={e => setFormData({...formData, shopName: e.target.value})} onBlur={e => checkDuplicate('name', e.target.value)} /></div>
             <div className="form-group"><label>지도 URL</label><input type="text" placeholder="주소를 붙여넣으세요" value={formData.shopUrl} onChange={e => setFormData({...formData, shopUrl: e.target.value})} onBlur={e => checkDuplicate('url', e.target.value)} /></div>
             <div className="form-group"><label>카테고리</label>
-              <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}><option>한식</option><option>중식</option><option>일식</option><option>양식</option><option>분식</option><option>기타</option></select>
+              {/* ⭐️ 입력 모달창에도 이모지 적용 */}
+              <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+                <option value="한식">🍚 한식</option>
+                <option value="중식">🥢 중식</option>
+                <option value="일식">🍣 일식</option>
+                <option value="양식">🍝 양식</option>
+                <option value="분식">🥘 분식</option>
+                <option value="기타">🍽️ 기타</option>
+              </select>
             </div>
             <div className="form-group"><label>대표 메뉴</label>
               <input type="text" placeholder="메뉴 1 (필수)" style={{marginBottom:'8px'}} value={formData.menu1} onChange={e => setFormData({...formData, menu1: e.target.value})} />
@@ -354,7 +376,6 @@ export default function LunchApp() {
             <div className="form-group"><label>가격대</label>
               <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
                 <select value={formData.priceMin} onChange={e => setFormData({...formData, priceMin: e.target.value})}>{priceOptions.map(p => <option key={p} value={p}>{p}</option>)}</select>
-                {/* ⭐️ "~" 기호를 직관적인 "부터", "까지"로 변경 */}
                 <span style={{fontSize:'12px', fontWeight:'bold', color:'#7f8c8d'}}>부터</span>
                 <select value={formData.priceMax} onChange={e => setFormData({...formData, priceMax: e.target.value})}>{priceOptions.map(p => <option key={p} value={p}>{p}</option>)}</select>
                 <span style={{fontSize:'12px', fontWeight:'bold', color:'#7f8c8d'}}>까지</span>
@@ -373,7 +394,6 @@ export default function LunchApp() {
             <p style={{fontSize:'13px', color:'#555', marginBottom:'20px'}}>삭제 사유를 선택해 주세요.</p>
             <div className="form-group"><label>삭제 사유</label>
               <select value={deleteReason} onChange={e => setDeleteReason(e.target.value)}>
-                {/* ⭐️ 삭제 사유 항목을 화면과 100% 동일하게 일치시킴 */}
                 <option value="폐업/이전">폐업/이전</option>
                 <option value="가격상승">가격상승</option>
                 <option value="재방문의사없음">재방문의사없음</option>
@@ -407,7 +427,8 @@ export default function LunchApp() {
         )}
         {isDeleteRequested && <div className="tag-deleted">🚨 삭제 요청 검토 중: {m['삭제요청사유'] || '사유 미상'}</div>}
         <div className="tag-container">
-          <span className="tag">{m['카테고리']}</span>
+          {/* ⭐️ 개별 메뉴 카드 태그에도 이모지 적용 */}
+          <span className="tag">{CATEGORY_EMOJI[m['카테고리']] || m['카테고리']}</span>
           <span className="tag tag-date">📅 {dateStr}</span>
           {type === 'all' && isPicked && <span className="tag tag-status">🎯 Pick 완료</span>}
         </div>
