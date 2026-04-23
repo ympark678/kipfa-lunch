@@ -27,6 +27,8 @@ export default function LunchApp() {
   
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  
+  // ⭐️ 삭제 사유 기본값도 직관적으로 변경
   const [deleteReason, setDeleteReason] = useState("폐업/이전");
 
   const [formData, setFormData] = useState({
@@ -170,7 +172,8 @@ export default function LunchApp() {
       const payload = { 
         action, id: editTargetId, author: currentUser, visitDate: formData.visitDate, 
         category: formData.category, shopName: formData.shopName.trim(), shopUrl: urlMatch ? urlMatch[1] : '', 
-        menus: combinedMenus, price: `${formData.priceMin}원 ~ ${formData.priceMax}원`
+        menus: combinedMenus, 
+        price: `${formData.priceMin}원 ~ ${formData.priceMax}원` // 시트에는 짧게 저장
       };
       const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
       const result = await res.json();
@@ -349,10 +352,12 @@ export default function LunchApp() {
               <input type="text" placeholder="메뉴 3 (선택)" value={formData.menu3} onChange={e => setFormData({...formData, menu3: e.target.value})} />
             </div>
             <div className="form-group"><label>가격대</label>
-              <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
+              <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
                 <select value={formData.priceMin} onChange={e => setFormData({...formData, priceMin: e.target.value})}>{priceOptions.map(p => <option key={p} value={p}>{p}</option>)}</select>
-                <span>~</span>
+                {/* ⭐️ "~" 기호를 직관적인 "부터", "까지"로 변경 */}
+                <span style={{fontSize:'12px', fontWeight:'bold', color:'#7f8c8d'}}>부터</span>
                 <select value={formData.priceMax} onChange={e => setFormData({...formData, priceMax: e.target.value})}>{priceOptions.map(p => <option key={p} value={p}>{p}</option>)}</select>
+                <span style={{fontSize:'12px', fontWeight:'bold', color:'#7f8c8d'}}>까지</span>
               </div>
             </div>
             <button className="btn" onClick={handleModalSubmit} style={{marginTop:'20px'}}>{modalMode === 'edit' ? '수정 완료' : '추천 완료'}</button>
@@ -368,9 +373,10 @@ export default function LunchApp() {
             <p style={{fontSize:'13px', color:'#555', marginBottom:'20px'}}>삭제 사유를 선택해 주세요.</p>
             <div className="form-group"><label>삭제 사유</label>
               <select value={deleteReason} onChange={e => setDeleteReason(e.target.value)}>
-                <option value="폐업/이전">폐업 또는 이전</option>
-                <option value="가격상승">가격이 너무 오름</option>
-                <option value="재방문의사없음">맛/서비스 불만족</option>
+                {/* ⭐️ 삭제 사유 항목을 화면과 100% 동일하게 일치시킴 */}
+                <option value="폐업/이전">폐업/이전</option>
+                <option value="가격상승">가격상승</option>
+                <option value="재방문의사없음">재방문의사없음</option>
               </select>
             </div>
             <button className="btn" style={{background:'#e74c3c'}} onClick={submitDeleteRequest}>요청하기</button>
@@ -403,7 +409,6 @@ export default function LunchApp() {
         <div className="tag-container">
           <span className="tag">{m['카테고리']}</span>
           <span className="tag tag-date">📅 {dateStr}</span>
-          {/* ⭐️ 명칭을 'Pick 완료'로 변경 */}
           {type === 'all' && isPicked && <span className="tag tag-status">🎯 Pick 완료</span>}
         </div>
         <div style={{fontWeight:'bold', color:'#7f8c8d', marginBottom:'5px'}}>🏠 {m['가게명']}</div>
