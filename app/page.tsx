@@ -20,7 +20,10 @@ export default function LunchApp() {
   
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
-  const [reactionLoadingId, setReactionLoadingId] = useState<string | null>(null);
+  
+  // ⭐️ 좋아요/싫어요 정확한 로딩 분리를 위해 상태 구조 변경
+  const [reactionLoading, setReactionLoading] = useState<{id: string, type: string} | null>(null);
+  
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -49,7 +52,6 @@ export default function LunchApp() {
   const [rouletteResult, setRouletteResult] = useState<any>(null);
   const [isSpinning, setIsSpinning] = useState(false);
 
-  // ⭐️ 당겨서 새로고침 (Pull to Refresh) 상태 관리
   const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const touchStartY = useRef(0);
@@ -125,7 +127,7 @@ export default function LunchApp() {
     finally { 
       setIsInitialLoading(false);
       setIsLoading(false); 
-      setIsRefreshing(false); // 당겨서 새로고침 종료
+      setIsRefreshing(false); 
       setPullDistance(0);
     }
   };
@@ -244,13 +246,14 @@ export default function LunchApp() {
     } catch (e) { showToast("🚨 오류 발생"); } finally { setIsLoading(false); }
   };
 
+  // ⭐️ 토글 반응 함수 (누른 버튼의 종류까지 기억하도록 수정)
   const toggleReaction = async (id: string, action: string) => {
-    setReactionLoadingId(id);
+    setReactionLoading({ id, type: action });
     try {
       const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action, id, userPin: session?.pin }) });
       const result = await res.json();
       if (result.success) fetchMenus(true);
-    } catch (e) { showToast("🚨 오류 발생"); } finally { setReactionLoadingId(null); }
+    } catch (e) { showToast("🚨 오류 발생"); } finally { setReactionLoading(null); }
   };
 
   const copyToClipboard = (text: string) => {
@@ -298,7 +301,6 @@ export default function LunchApp() {
     }, 100);
   };
 
-  // ⭐️ 당겨서 새로고침 (Pull to Refresh) 터치 이벤트
   const handleTouchStart = (e: any) => {
     if (window.scrollY === 0) touchStartY.current = e.touches[0].clientY;
   };
@@ -306,15 +308,15 @@ export default function LunchApp() {
     if (touchStartY.current > 0 && window.scrollY === 0) {
       const y = e.touches[0].clientY;
       const diff = y - touchStartY.current;
-      if (diff > 0 && diff < 150) setPullDistance(diff * 0.4); // 저항감 있게 내려옴
+      if (diff > 0 && diff < 150) setPullDistance(diff * 0.4); 
     }
   };
   const handleTouchEnd = () => {
     if (pullDistance > 40) {
       setIsRefreshing(true);
-      fetchMenus(); // 데이터 새로고침
+      fetchMenus(); 
     } else {
-      setPullDistance(0); // 원위치
+      setPullDistance(0); 
     }
     touchStartY.current = 0;
   };
@@ -353,7 +355,6 @@ export default function LunchApp() {
         input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         input[type="number"] { -moz-appearance: textfield; }
 
-        /* ⭐️ Pull to Refresh UI */
         .ptr-container { position: fixed; top: 0; left: 0; width: 100%; height: 60px; display: flex; justify-content: center; align-items: center; z-index: 50; transition: transform 0.2s; pointer-events: none; }
         .ptr-icon { width: 30px; height: 30px; background: white; border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; justify-content: center; align-items: center; font-size: 16px; transition: transform 0.3s; }
         .ptr-icon.spinning { animation: spin 1s linear infinite; border: 3px solid #f3f3f3; border-top: 3px solid #3498db; background: transparent; box-shadow: none; font-size: 0; }
@@ -404,21 +405,23 @@ export default function LunchApp() {
         .map-link:active { transform: scale(0.95); }
         
         .reaction-group { display: flex; gap: 8px; }
-        /* ⭐️ 하트 펌핑 액션 */
-        .like-btn, .dislike-btn { background: white; border: 1px solid #eee; padding: 6px 12px; border-radius: 20px; cursor: pointer; font-weight: 800; display: flex; align-items: center; gap: 4px; font-size: 13px; transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        .like-btn:active, .dislike-btn:active { transform: scale(1.15); }
-        .like-btn.liked { background: #fa5252; color: white; border-color: #fa5252; } .dislike-btn.liked { background: #7f8c8d; color: white; border-color: #7f8c8d; }
+        
+        /* ⭐️ 하트 뿅! 팝 애니메이션 추가 */
+        @keyframes heartPop { 0% { transform: scale(0.9); } 50% { transform: scale(1.15); } 100% { transform: scale(1); } }
+        .like-btn, .dislike-btn { background: white; border: 1px solid #eee; padding: 6px 12px; border-radius: 20px; cursor: pointer; font-weight: 800; display: flex; align-items: center; gap: 4px; font-size: 13px; transition: all 0.2s; }
+        .like-btn.liked { background: #fa5252; color: white; border-color: #fa5252; animation: heartPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); } 
+        .dislike-btn.liked { background: #7f8c8d; color: white; border-color: #7f8c8d; animation: heartPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .like-btn:disabled, .dislike-btn:disabled { opacity: 0.6; cursor: wait; transform: none; }
         
         .btn-outline { width: 100%; background: white; padding: 12px; font-size: 14px; font-weight: 800; border-radius: 10px; cursor: pointer; border: 1px solid #3498db; color: #3498db; margin-top: 15px; transition: 0.2s; }
         .btn-outline:active { background: #f0f8ff; transform: scale(0.98); }
 
+        /* ⭐️ 버튼 위치 오류 해결: 밖으로 빼서 고정! */
         .fab-container { position: fixed; bottom: 25px; right: 25px; display: flex; flex-direction: column; gap: 10px; z-index: 1000; }
         .fab { background: linear-gradient(135deg, #3498db, #2ecc71); color: white; width: 60px; height: 60px; border-radius: 50%; font-size: 30px; border: none; box-shadow: 0 6px 20px rgba(46, 204, 113, 0.4); display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .fab:active { transform: scale(0.85); }
         .fab-secondary { background: white; color: #2c3e50; width: 50px; height: 50px; font-size: 24px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); align-self: flex-end;}
 
-        /* ⭐️ 모달창 팝업 바운스 애니메이션 */
         .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 2000; backdrop-filter: blur(3px); animation: fadeIn 0.2s ease-out; }
         .modal-content { background: white; padding: 25px; border-radius: 24px; width: 90%; max-width: 400px; max-height: 85vh; overflow-y: auto; text-align: left; box-shadow: 0 20px 40px rgba(0,0,0,0.2); animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -441,7 +444,6 @@ export default function LunchApp() {
         .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #2c3e50; color: white; padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 10000; animation: slideUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); white-space: nowrap; }
         @keyframes slideUp { from { bottom: -50px; opacity: 0; } to { bottom: 30px; opacity: 1; } }
 
-        /* ⭐️ 빈 화면 (Empty State) 스타일 */
         .empty-state { text-align: center; padding: 50px 20px; background: white; border-radius: 20px; border: 2px dashed #e1e5e8; margin: 20px 0; animation: fadeIn 0.5s ease-out; }
         .empty-icon { font-size: 60px; margin-bottom: 15px; animation: float 3s ease-in-out infinite; }
         .empty-title { font-size: 18px; font-weight: 900; color: #2c3e50; margin-bottom: 8px; }
@@ -451,7 +453,6 @@ export default function LunchApp() {
 
       {toastMessage && <div className="toast">{toastMessage}</div>}
       
-      {/* ⭐️ 당겨서 새로고침 스피너 (상단 숨김) */}
       <div className="ptr-container" style={{ transform: `translateY(${pullDistance > 0 ? pullDistance - 60 : -60}px)` }}>
         <div className={`ptr-icon ${isRefreshing ? 'spinning' : ''}`} style={{ transform: `rotate(${pullDistance * 2}deg)` }}>
           {!isRefreshing && '⬇️'}
@@ -500,8 +501,9 @@ export default function LunchApp() {
                   {filteredData.tw.length === 0 ? (
                     <div className="empty-state">
                       <div className="empty-icon">🍳</div>
-                      <div className="empty-title">앗! 추천된 맛집이 없어요</div>
-                      <div className="empty-desc">우측 하단의 <b>＋ 버튼</b>을 눌러<br/>이번 주 맛집을 가장 먼저 추천해 보세요!</div>
+                      {/* ⭐️ 텍스트 수정 반영 */}
+                      <div className="empty-title">후보가 없습니다.</div>
+                      <div className="empty-desc">새로운 맛집을 공유해 주세요.</div>
                     </div>
                   ) : filteredData.tw.map(m => <Card key={m.ID} menu={m} type="pick" />)}
                   
@@ -509,8 +511,9 @@ export default function LunchApp() {
                   {filteredData.nw.length === 0 ? (
                     <div className="empty-state">
                       <div className="empty-icon">🗓️</div>
-                      <div className="empty-title">다음 주 일정도 비어있네요</div>
-                      <div className="empty-desc">미리미리 예약해 두는 센스!<br/>새로운 맛집을 공유해 주세요.</div>
+                      {/* ⭐️ 텍스트 수정 반영 */}
+                      <div className="empty-title">후보가 없습니다.</div>
+                      <div className="empty-desc">새로운 맛집을 공유해 주세요.</div>
                     </div>
                   ) : filteredData.nw.map(m => <Card key={m.ID} menu={m} type="pick" />)}
                 </div>
@@ -541,14 +544,15 @@ export default function LunchApp() {
               )}
             </>
           )}
-
-          <div className="fab-container">
-            {activeTab === 'pick' && (
-              <button className="fab fab-secondary" onClick={spinRoulette} title="점심 랜덤 뽑기">🎲</button>
-            )}
-            <button className="fab" onClick={openAddModal}>＋</button>
-          </div>
         </div>
+      </div>
+
+      {/* ⭐️ 버튼을 container-wrapper(스크롤 당기기) 바깥으로 빼서 고정되도록 수정! */}
+      <div className="fab-container">
+        {activeTab === 'pick' && (
+          <button className="fab fab-secondary" onClick={spinRoulette} title="점심 랜덤 뽑기">🎲</button>
+        )}
+        <button className="fab" onClick={openAddModal}>＋</button>
       </div>
 
       {isRouletteOpen && (
@@ -644,7 +648,10 @@ export default function LunchApp() {
     const dateStr = String(m['추천방문일']).split('T')[0] || '미정';
     const cleanName = (m['가게명'] || '').replace(/\s/g, '');
     const isPicked = filteredData.pickNames.includes(cleanName);
-    const isLiking = reactionLoadingId === m.ID;
+    
+    // ⭐️ 어떤 액션(좋아요/싫어요)이 현재 로딩 중인지 정확히 파악!
+    const isLiking = reactionLoading?.id === m.ID && reactionLoading?.type === 'toggle_like';
+    const isDisliking = reactionLoading?.id === m.ID && reactionLoading?.type === 'toggle_dislike';
 
     return (
       <div className="menu-card">
@@ -669,19 +676,20 @@ export default function LunchApp() {
           <a href={m['가게URL']} target="_blank" className="map-link">🗺️ 지도/가게정보 보기</a>
           {type === 'pick' ? (
             <div className="reaction-group">
+              {/* ⭐️ 하트 버튼에 팝 효과 클래스가 자동 토글됨! 로딩 시 한쪽만 ⏳ 표시됨 */}
               <button 
                 className={`like-btn ${likes.includes(session?.pin as string) ? 'liked' : ''}`} 
                 onClick={() => toggleReaction(m.ID, 'toggle_like')}
-                disabled={isLiking}
+                disabled={isLiking || isDisliking}
               >
                 {isLiking ? '⏳' : (likes.includes(session?.pin as string) ? '❤️' : '🤍')} {likes.length}
               </button>
               <button 
                 className={`dislike-btn ${dislikes.includes(session?.pin as string) ? 'liked' : ''}`} 
                 onClick={() => toggleReaction(m.ID, 'toggle_dislike')}
-                disabled={isLiking}
+                disabled={isLiking || isDisliking}
               >
-                {isLiking ? '⏳' : (dislikes.includes(session?.pin as string) ? '💔' : '👎')} {dislikes.length}
+                {isDisliking ? '⏳' : (dislikes.includes(session?.pin as string) ? '💔' : '👎')} {dislikes.length}
               </button>
             </div>
           ) : (
