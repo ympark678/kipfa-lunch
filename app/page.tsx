@@ -3,11 +3,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzRoJPOYW8FB1Ck69hOl56aluBxNDjUAPewlsTEgIvK39y6hShhx4SU6K2enx0R29NLAQ/exec";
-const USER_MAP: Record<string, string> = {
-  "4488": "유인호", "7991": "송선애", "4611": "신동철", "1121": "이소영",
-  "5555": "문진곤", "4946": "유광열", "5015": "박영민", "2253": "조은지", "8830": "이수연",
-};
-
 const CATEGORY_EMOJI: Record<string, string> = {
   "한식": "🍚 한식",
   "중식": "🥢 중식",
@@ -23,11 +18,9 @@ export default function LunchApp() {
   const [menus, setMenus] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<"pick" | "all">("pick");
   
-  // ⭐️ 스켈레톤 로딩 상태 관리
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
-
-  // ⭐️ 토스트 알림 상태 관리
+  const [reactionLoadingId, setReactionLoadingId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -52,10 +45,14 @@ export default function LunchApp() {
 
   const [showA2HS, setShowA2HS] = useState(false);
 
-  // ⭐️ 룰렛 모달 상태
   const [isRouletteOpen, setIsRouletteOpen] = useState(false);
   const [rouletteResult, setRouletteResult] = useState<any>(null);
   const [isSpinning, setIsSpinning] = useState(false);
+
+  // ⭐️ 당겨서 새로고침 (Pull to Refresh) 상태 관리
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const touchStartY = useRef(0);
 
   const dateOptions = useMemo(() => {
     let today = new Date(); today.setHours(0,0,0,0);
@@ -78,7 +75,6 @@ export default function LunchApp() {
     return opts;
   }, []);
 
-  // ⭐️ 토스트 알림 띄우기 함수 (3초 후 자동 사라짐)
   const showToast = (message: string) => {
     setToastMessage(message);
     setTimeout(() => setToastMessage(null), 3000);
@@ -107,7 +103,7 @@ export default function LunchApp() {
       setSession({ pin: savedPin, name: savedName }); 
       fetchMenus(); 
     } else {
-      setIsInitialLoading(false); // 로그인 전이면 로딩 끝
+      setIsInitialLoading(false);
     }
   }, []);
 
@@ -118,8 +114,8 @@ export default function LunchApp() {
   }, [dateOptions]);
 
   const fetchMenus = async (silent = false) => {
-    if (!silent && menus.length === 0) setIsInitialLoading(true); // 처음 불러올 때만 스켈레톤
-    if (!silent && menus.length > 0) setIsLoading(true); // 새로고침 시 상단 작은 스피너
+    if (!silent && menus.length === 0 && !isRefreshing) setIsInitialLoading(true);
+    if (!silent && menus.length > 0 && !isRefreshing) setIsLoading(true);
 
     try {
       const res = await fetch(SCRIPT_URL);
@@ -129,6 +125,8 @@ export default function LunchApp() {
     finally { 
       setIsInitialLoading(false);
       setIsLoading(false); 
+      setIsRefreshing(false); // 당겨서 새로고침 종료
+      setPullDistance(0);
     }
   };
 
@@ -152,11 +150,7 @@ export default function LunchApp() {
       } else {
         showToast("❌ 등록되지 않은 번호입니다.");
       }
-    } catch (e) {
-      showToast("🚨 서버 연결에 실패했습니다.");
-    } finally {
-      setIsLoading(false);
-    }
+    } catch (e) { showToast("🚨 서버 연결에 실패했습니다."); } finally { setIsLoading(false); }
   };
 
   const handleLogout = () => {
@@ -186,13 +180,9 @@ export default function LunchApp() {
     const ms = String(m['대표메뉴'] || '').split(', ');
     const ps = String(m['가격대'] || '').match(/[\d,]+/g);
     setFormData(prev => ({
-      ...prev,
-      category: m['카테고리'] || '한식',
-      shopName: m['가게명'] || '',
-      shopUrl: m['가게URL'] || '',
+      ...prev, category: m['카테고리'] || '한식', shopName: m['가게명'] || '', shopUrl: m['가게URL'] || '',
       menu1: ms[0] || '', menu2: ms[1] || '', menu3: ms[2] || '',
-      priceMin: (ps && ps[0]) ? ps[0] : "9,000",
-      priceMax: (ps && ps[1]) ? ps[1] : "15,000"
+      priceMin: (ps && ps[0]) ? ps[0] : "9,000", priceMax: (ps && ps[1]) ? ps[1] : "15,000"
     }));
   };
 
@@ -207,17 +197,13 @@ export default function LunchApp() {
     setModalMode(isRepick ? "repick" : "edit");
     setEditTargetId(isRepick ? null : m.ID);
     fillFormWithData(m);
-    if (!isRepick) {
-      setFormData(prev => ({ ...prev, visitDate: String(m["추천방문일"]).split("T")[0] }));
-    } else {
-      setFormData(prev => ({ ...prev, visitDate: dateOptions[0]?.value || "" }));
-    }
+    if (!isRepick) setFormData(prev => ({ ...prev, visitDate: String(m["추천방문일"]).split("T")[0] }));
+    else setFormData(prev => ({ ...prev, visitDate: dateOptions[0]?.value || "" }));
     setIsModalOpen(true);
   };
 
   const handleModalSubmit = async () => {
     if (!formData.shopName.trim() || !formData.menu1.trim()) return showToast("⚠️ 가게명, 대표메뉴1을 입력하세요.");
-
     const duplicate = menus.find(m => {
       const target = (m['가게명'] || '').replace(/\s/g, '');
       const search = formData.shopName.replace(/\s/g, '');
@@ -234,9 +220,7 @@ export default function LunchApp() {
     try {
       const action = (modalMode === "edit") ? "edit_menu" : "add_menu";
       const payload = { 
-        action, id: editTargetId, 
-        author: session?.name, 
-        visitDate: formData.visitDate, 
+        action, id: editTargetId, author: session?.name, visitDate: formData.visitDate, 
         category: formData.category, shopName: formData.shopName.trim(), shopUrl: urlMatch ? urlMatch[1] : '', 
         menus: combinedMenus, price: `${formData.priceMin}원 ~ ${formData.priceMax}원`
       };
@@ -261,21 +245,18 @@ export default function LunchApp() {
   };
 
   const toggleReaction = async (id: string, action: string) => {
-    setIsLoading(true);
+    setReactionLoadingId(id);
     try {
       const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action, id, userPin: session?.pin }) });
       const result = await res.json();
       if (result.success) fetchMenus(true);
-    } catch (e) { showToast("🚨 오류 발생"); } finally { setIsLoading(false); }
+    } catch (e) { showToast("🚨 오류 발생"); } finally { setReactionLoadingId(null); }
   };
 
-  // ⭐️ 텍스트 복사 (공유) 함수
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text).then(() => {
       showToast("📋 링크가 복사되었습니다. 메신저에 붙여넣기 하세요!");
-    }).catch(() => {
-      showToast("🚨 복사 실패");
-    });
+    }).catch(() => { showToast("🚨 복사 실패"); });
   };
 
   const filteredData = useMemo(() => {
@@ -303,27 +284,41 @@ export default function LunchApp() {
     return { tw, nw, allF, pickNames };
   }, [menus, searchQuery, categoryFilter]);
 
-  // ⭐️ 룰렛 돌리기 함수
   const spinRoulette = () => {
-    if (filteredData.allF.length === 0) return showToast("⚠️ 추천할 식당이 없습니다.");
+    const pickList = [...filteredData.tw, ...filteredData.nw];
+    if (pickList.length === 0) return showToast("⚠️ 추천된 회식 후보가 없습니다.");
     setIsRouletteOpen(true);
     setIsSpinning(true);
-    
-    // 1.5초 동안 빠르게 바뀌는 효과
     let count = 0;
     const interval = setInterval(() => {
-      const randomIndex = Math.floor(Math.random() * filteredData.allF.length);
-      setRouletteResult(filteredData.allF[randomIndex]);
+      const randomIndex = Math.floor(Math.random() * pickList.length);
+      setRouletteResult(pickList[randomIndex]);
       count++;
-      if (count > 15) {
-        clearInterval(interval);
-        setIsSpinning(false);
-      }
+      if (count > 15) { clearInterval(interval); setIsSpinning(false); }
     }, 100);
   };
 
+  // ⭐️ 당겨서 새로고침 (Pull to Refresh) 터치 이벤트
+  const handleTouchStart = (e: any) => {
+    if (window.scrollY === 0) touchStartY.current = e.touches[0].clientY;
+  };
+  const handleTouchMove = (e: any) => {
+    if (touchStartY.current > 0 && window.scrollY === 0) {
+      const y = e.touches[0].clientY;
+      const diff = y - touchStartY.current;
+      if (diff > 0 && diff < 150) setPullDistance(diff * 0.4); // 저항감 있게 내려옴
+    }
+  };
+  const handleTouchEnd = () => {
+    if (pullDistance > 40) {
+      setIsRefreshing(true);
+      fetchMenus(); // 데이터 새로고침
+    } else {
+      setPullDistance(0); // 원위치
+    }
+    touchStartY.current = 0;
+  };
 
-  // 로그인 화면
   if (!session) return (
     <>
       <style>{`
@@ -332,17 +327,14 @@ export default function LunchApp() {
         .container { max-width: 500px; margin: 0 auto; padding: 0 20px 90px 20px; text-align: center; margin-top: 100px; } 
         input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         input[type="number"] { -moz-appearance: textfield; }
-        .pin-input { font-size: 24px; padding: 12px; width: 160px; text-align: center; border: 2px solid #ddd; border-radius: 12px; margin-bottom: 25px; letter-spacing: 5px; background: white; outline: none; }
-        .pin-input:focus { border-color: #3498db; }
+        .pin-input { font-size: 24px; padding: 12px; width: 160px; text-align: center; border: 2px solid #ddd; border-radius: 12px; margin-bottom: 25px; letter-spacing: 5px; background: white; outline: none; transition: 0.3s; }
+        .pin-input:focus { border-color: #3498db; box-shadow: 0 0 0 4px rgba(52,152,219,0.1); }
         .btn { background-color: #3498db; color: white; border: none; padding: 14px 20px; font-size: 16px; border-radius: 10px; cursor: pointer; width: 100%; font-weight: 800; transition: 0.2s; box-shadow: 0 4px 6px rgba(52,152,219,0.2); } 
-        .btn:active { transform: scale(0.98); } 
-        .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #2c3e50; color: white; padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 10000; animation: slideUp 0.3s ease-out; }
+        .btn:active { transform: scale(0.96); } 
+        .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #2c3e50; color: white; padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 10000; animation: slideUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         @keyframes slideUp { from { bottom: -50px; opacity: 0; } to { bottom: 30px; opacity: 1; } }
       `}</style>
-      
-      {/* 토스트 알림 */}
       {toastMessage && <div className="toast">{toastMessage}</div>}
-
       <div className="container">
         <h1 style={{marginBottom: '10px', fontSize: '26px', fontWeight: '900', letterSpacing: '-1px'}}>🏢 KIPFA 점심 추천</h1>
         <p style={{color:'#7f8c8d', marginBottom:'30px', fontWeight: '500'}}>휴대폰 뒷자리 4자리를 입력하세요</p>
@@ -357,32 +349,44 @@ export default function LunchApp() {
       <style>{`
         @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
         :root { --sticky-top: ${stickyTop}px; }
-        body { font-family: 'Pretendard', sans-serif; background-color: #f7f9fa; margin: 0; padding: 0; color: #2c3e50; }
+        body { font-family: 'Pretendard', sans-serif; background-color: #f7f9fa; margin: 0; padding: 0; color: #2c3e50; overscroll-behavior-y: contain; }
         input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         input[type="number"] { -moz-appearance: textfield; }
 
+        /* ⭐️ Pull to Refresh UI */
+        .ptr-container { position: fixed; top: 0; left: 0; width: 100%; height: 60px; display: flex; justify-content: center; align-items: center; z-index: 50; transition: transform 0.2s; pointer-events: none; }
+        .ptr-icon { width: 30px; height: 30px; background: white; border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; justify-content: center; align-items: center; font-size: 16px; transition: transform 0.3s; }
+        .ptr-icon.spinning { animation: spin 1s linear infinite; border: 3px solid #f3f3f3; border-top: 3px solid #3498db; background: transparent; box-shadow: none; font-size: 0; }
+
+        .container-wrapper { transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .container { max-width: 500px; margin: 0 auto; padding: 0 20px 90px 20px; } 
+        
         .sticky-top-area { position: sticky; top: 0; background: #f7f9fa; z-index: 100; padding-top: 20px; padding-bottom: 5px; }
         .section-title { position: sticky; top: var(--sticky-top); background: rgba(247, 249, 250, 0.95); backdrop-filter: blur(5px); z-index: 90; font-size: 16px; color: #34495e; border-bottom: 2px solid #3498db; padding: 15px 0 10px 0; margin: 0 0 15px 0; font-weight: 800; letter-spacing: -0.5px; }
         .filter-section { position: sticky; top: var(--sticky-top); background: rgba(247, 249, 250, 0.95); backdrop-filter: blur(5px); z-index: 90; padding: 10px 0; margin-bottom: 15px; display: flex; flex-direction: column; gap: 10px; }
+        
         .btn { background-color: #3498db; color: white; border: none; padding: 14px 20px; font-size: 16px; border-radius: 10px; cursor: pointer; width: 100%; font-weight: 800; transition: 0.2s; box-shadow: 0 4px 6px rgba(52,152,219,0.2); }
-        .btn:active { transform: scale(0.98); } .btn:disabled { background-color: #bdc3c7; cursor: not-allowed; box-shadow: none; }
+        .btn:active { transform: scale(0.96); } .btn:disabled { background-color: #bdc3c7; cursor: not-allowed; box-shadow: none; }
         .btn-secondary { background-color: #95a5a6; margin-top: 10px; box-shadow: none; }
+        
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         .header h2 { margin: 0; font-size: 20px; font-weight: 900; letter-spacing: -0.5px; }
-        
-        /* 로딩 스피너 (상단 작은것) */
         .header-loader { border: 3px solid #f3f3f3; border-top: 3px solid #3498db; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; margin-left: 10px;}
 
         #user-info { font-size: 13px; font-weight: 800; background: #e8f4f8; color: #2980b9; padding: 6px 12px; border-radius: 20px; margin-right: 5px; }
-        .logout-btn { background: white; border: 1px solid #ddd; color: #7f8c8d; padding: 5px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; font-weight: 800; }
+        .logout-btn { background: white; border: 1px solid #ddd; color: #7f8c8d; padding: 5px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; font-weight: 800; transition: 0.2s; }
+        .logout-btn:active { background: #f1f3f5; transform: scale(0.95); }
+
         .tabs { display: flex; gap: 10px; margin-bottom: 10px; }
-        .tab { flex: 1; text-align: center; padding: 14px; background: white; border-radius: 12px; cursor: pointer; font-weight: 800; font-size: 14px; border: 1px solid #eee; transition: 0.3s; color: #7f8c8d; }
-        .tab.active { background: #3498db; color: white; border-color: #3498db; box-shadow: 0 4px 10px rgba(52,152,219,0.3); }
-        .search-input, .category-select { width: 100%; padding: 14px; border-radius: 12px; border: 1px solid #e1e5e8; box-sizing: border-box; font-size: 14px; font-weight: 600; background: white; outline: none; }
-        .search-input:focus, .category-select:focus { border-color: #3498db; }
+        .tab { flex: 1; text-align: center; padding: 14px; background: white; border-radius: 12px; cursor: pointer; font-weight: 800; font-size: 14px; border: 1px solid #eee; transition: 0.2s; color: #7f8c8d; }
+        .tab.active { background: #3498db; color: white; border-color: #3498db; box-shadow: 0 4px 10px rgba(52,152,219,0.3); transform: translateY(-2px); }
         
-        .menu-card { background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.04); margin-bottom: 18px; border: 1px solid #e1e5e8; position: relative; }
+        .search-input, .category-select { width: 100%; padding: 14px; border-radius: 12px; border: 1px solid #e1e5e8; box-sizing: border-box; font-size: 14px; font-weight: 600; background: white; outline: none; transition: 0.3s; }
+        .search-input:focus, .category-select:focus { border-color: #3498db; box-shadow: 0 0 0 3px rgba(52,152,219,0.1); }
+        
+        .menu-card { background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.04); margin-bottom: 18px; border: 1px solid #e1e5e8; position: relative; transition: 0.2s; }
+        .menu-card:active { transform: scale(0.98); background: #fafafa; }
+        
         .card-top-actions { position: absolute; top: 18px; right: 18px; display: flex; gap: 6px; z-index: 5; }
         .menu-card h3 { margin: 0 0 6px 0; font-size: 18px; color: #2c3e50; padding-right: 90px; word-break: keep-all; font-weight: 800; letter-spacing: -0.5px; }
         
@@ -390,33 +394,43 @@ export default function LunchApp() {
         .tag { display: inline-flex; align-items: center; background: #f0f3f5; color: #555; padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; white-space: nowrap; }
         
         .btn-mini { background: #f1f3f5; border: none; padding: 5px 8px; border-radius: 6px; font-size: 11px; font-weight: 800; cursor: pointer; color: #7f8c8d; transition: 0.2s; }
+        .btn-mini:active { transform: scale(0.9); }
         .btn-mini.danger { color: #e74c3c; }
         .tag-date { background: #fff9db; color: #f08c00; }
         .tag-status { background: #e3f2fd; color: #1976d2; border: 1px solid #bbdefb; } 
         .tag-deleted { background: #fee2e2; color: #e74c3c; width: 100%; text-align: center; margin-bottom: 12px; font-size: 13px; padding: 8px; border-radius: 8px; font-weight: 800; box-sizing: border-box; }
         .menu-details { font-size: 13px; color: #555; line-height: 1.6; margin-bottom: 15px; background: #f8f9fa; padding: 12px; border-radius: 10px; font-weight: 600; }
-        .map-link { color: #e67e22; text-decoration: none; font-weight: 800; font-size: 13px; background: #fdf3e9; padding: 6px 12px; border-radius: 20px; }
-        .reaction-group { display: flex; gap: 8px; }
-        .like-btn, .dislike-btn { background: white; border: 1px solid #eee; padding: 6px 12px; border-radius: 20px; cursor: pointer; font-weight: 800; display: flex; align-items: center; gap: 4px; font-size: 13px; transition: 0.2s; }
-        .like-btn.liked { background: #fa5252; color: white; border-color: #fa5252; } .dislike-btn.liked { background: #7f8c8d; color: white; border-color: #7f8c8d; }
-        .btn-outline { width: 100%; background: white; padding: 12px; font-size: 14px; font-weight: 800; border-radius: 10px; cursor: pointer; border: 1px solid #3498db; color: #3498db; margin-top: 15px; transition: 0.2s; }
+        .map-link { color: #e67e22; text-decoration: none; font-weight: 800; font-size: 13px; background: #fdf3e9; padding: 6px 12px; border-radius: 20px; transition: 0.2s; display: inline-block; }
+        .map-link:active { transform: scale(0.95); }
         
-        /* 버튼 컨테이너 (공유, 룰렛 등) */
+        .reaction-group { display: flex; gap: 8px; }
+        /* ⭐️ 하트 펌핑 액션 */
+        .like-btn, .dislike-btn { background: white; border: 1px solid #eee; padding: 6px 12px; border-radius: 20px; cursor: pointer; font-weight: 800; display: flex; align-items: center; gap: 4px; font-size: 13px; transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .like-btn:active, .dislike-btn:active { transform: scale(1.15); }
+        .like-btn.liked { background: #fa5252; color: white; border-color: #fa5252; } .dislike-btn.liked { background: #7f8c8d; color: white; border-color: #7f8c8d; }
+        .like-btn:disabled, .dislike-btn:disabled { opacity: 0.6; cursor: wait; transform: none; }
+        
+        .btn-outline { width: 100%; background: white; padding: 12px; font-size: 14px; font-weight: 800; border-radius: 10px; cursor: pointer; border: 1px solid #3498db; color: #3498db; margin-top: 15px; transition: 0.2s; }
+        .btn-outline:active { background: #f0f8ff; transform: scale(0.98); }
+
         .fab-container { position: fixed; bottom: 25px; right: 25px; display: flex; flex-direction: column; gap: 10px; z-index: 1000; }
-        .fab { background: linear-gradient(135deg, #3498db, #2ecc71); color: white; width: 60px; height: 60px; border-radius: 50%; font-size: 30px; border: none; box-shadow: 0 6px 20px rgba(46, 204, 113, 0.4); display: flex; justify-content: center; align-items: center; cursor: pointer; transition: transform 0.2s; }
-        .fab:active { transform: scale(0.9); }
+        .fab { background: linear-gradient(135deg, #3498db, #2ecc71); color: white; width: 60px; height: 60px; border-radius: 50%; font-size: 30px; border: none; box-shadow: 0 6px 20px rgba(46, 204, 113, 0.4); display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .fab:active { transform: scale(0.85); }
         .fab-secondary { background: white; color: #2c3e50; width: 50px; height: 50px; font-size: 24px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); align-self: flex-end;}
 
-        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 2000; backdrop-filter: blur(2px); }
-        .modal-content { background: white; padding: 25px; border-radius: 20px; width: 90%; max-width: 400px; max-height: 85vh; overflow-y: auto; text-align: left; box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
+        /* ⭐️ 모달창 팝업 바운스 애니메이션 */
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 2000; backdrop-filter: blur(3px); animation: fadeIn 0.2s ease-out; }
+        .modal-content { background: white; padding: 25px; border-radius: 24px; width: 90%; max-width: 400px; max-height: 85vh; overflow-y: auto; text-align: left; box-shadow: 0 20px 40px rgba(0,0,0,0.2); animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes popIn { 0% { transform: scale(0.9) translateY(20px); opacity: 0; } 100% { transform: scale(1) translateY(0); opacity: 1; } }
+        
         .form-group { margin-bottom: 18px; } .form-group label { display: block; margin-bottom: 8px; font-weight: 800; font-size: 13px; color: #34495e; }
         .form-group input, .form-group select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box; font-size: 14px; font-weight: 500; outline: none; transition: 0.2s; }
-        .form-group input:focus, .form-group select:focus { border-color: #3498db; background-color: #f0f8ff; }
+        .form-group input:focus, .form-group select:focus { border-color: #3498db; background-color: #f0f8ff; box-shadow: 0 0 0 3px rgba(52,152,219,0.1); }
         
         .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 45px; height: 45px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* ⭐️ 스켈레톤 로딩 애니메이션 */
         .skeleton { background: #eee; background: linear-gradient(110deg, #ececec 8%, #f5f5f5 18%, #ececec 33%); border-radius: 5px; background-size: 200% 100%; animation: 1.5s shine linear infinite; }
         .skeleton-card { background: white; padding: 20px; border-radius: 16px; border: 1px solid #e1e5e8; margin-bottom: 18px; }
         .skeleton-tag { width: 60px; height: 24px; margin-bottom: 12px; display: inline-block; border-radius: 6px; }
@@ -424,87 +438,123 @@ export default function LunchApp() {
         .skeleton-text { width: 40%; height: 16px; margin-bottom: 15px; }
         @keyframes shine { to { background-position-x: -200%; } }
 
-        /* ⭐️ 토스트 알림 */
-        .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #2c3e50; color: white; padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 10000; animation: slideUp 0.3s ease-out; white-space: nowrap; }
+        .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #2c3e50; color: white; padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 10000; animation: slideUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); white-space: nowrap; }
         @keyframes slideUp { from { bottom: -50px; opacity: 0; } to { bottom: 30px; opacity: 1; } }
+
+        /* ⭐️ 빈 화면 (Empty State) 스타일 */
+        .empty-state { text-align: center; padding: 50px 20px; background: white; border-radius: 20px; border: 2px dashed #e1e5e8; margin: 20px 0; animation: fadeIn 0.5s ease-out; }
+        .empty-icon { font-size: 60px; margin-bottom: 15px; animation: float 3s ease-in-out infinite; }
+        .empty-title { font-size: 18px; font-weight: 900; color: #2c3e50; margin-bottom: 8px; }
+        .empty-desc { font-size: 14px; color: #7f8c8d; font-weight: 500; line-height: 1.5; }
+        @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0px); } }
       `}</style>
 
       {toastMessage && <div className="toast">{toastMessage}</div>}
-
-      <div className="container">
-        <div ref={headerRef} className="sticky-top-area">
-          <div className="header">
-            <div style={{display:'flex', alignItems:'center'}}>
-              <h2>KIPFA 점심 추천</h2>
-              {/* 화면 상단 미니 로딩 스피너 (토스트랑 같이 씀) */}
-              {isLoading && !isInitialLoading && <div className="header-loader"></div>}
-            </div>
-            <div><span id="user-info">👋 {session.name}님</span><button className="logout-btn" onClick={handleLogout}>로그아웃</button></div>
-          </div>
-          <div className="tabs">
-            <div className={`tab ${activeTab === 'pick' ? 'active' : ''}`} onClick={() => setActiveTab('pick')}>📅 이번주/다음주 Pick</div>
-            <div className={`tab ${activeTab === 'all' ? 'active' : ''}`} onClick={() => setActiveTab('all')}>📂 전체 맛집 보기</div>
-          </div>
-        </div>
-
-        {/* ⭐️ 처음 접속 시 보여줄 스켈레톤 UI */}
-        {isInitialLoading ? (
-          <div>
-            <h3 className="section-title">데이터를 불러오는 중입니다...</h3>
-            {[1, 2, 3].map(i => (
-              <div key={i} className="skeleton-card">
-                <div className="skeleton skeleton-tag"></div>
-                <div className="skeleton skeleton-text" style={{width:'30%', marginBottom:'5px'}}></div>
-                <div className="skeleton skeleton-title"></div>
-                <div className="skeleton skeleton-text" style={{height:'40px', width:'100%', borderRadius:'10px'}}></div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <>
-            {activeTab === 'pick' && (
-              <div>
-                <h3 className="section-title">🎯 이번주 수/금 회식 후보</h3>
-                {filteredData.tw.map(m => <Card key={m.ID} menu={m} type="pick" />)}
-                <h3 className="section-title">🗓️ 다음주 수/금 회식 후보</h3>
-                {filteredData.nw.map(m => <Card key={m.ID} menu={m} type="pick" />)}
-              </div>
-            )}
-
-            {activeTab === 'all' && (
-              <div>
-                <div className="filter-section">
-                  <input type="text" className="search-input" placeholder="🔍 맛집 검색..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-                  <select className="category-select" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
-                    <option value="all">전체 카테고리</option>
-                    <option value="한식">🍚 한식</option>
-                    <option value="중식">🥢 중식</option>
-                    <option value="일식">🍣 일식</option>
-                    <option value="양식">🍝 양식</option>
-                    <option value="분식">🥘 분식</option>
-                    <option value="기타">🍽️ 기타</option>
-                  </select>
-                </div>
-                {filteredData.allF.map(m => <Card key={m.ID} menu={m} type="all" />)}
-              </div>
-            )}
-          </>
-        )}
-
-        <div className="fab-container">
-          {/* ⭐️ 랜덤 룰렛 버튼 추가 */}
-          {activeTab === 'all' && (
-            <button className="fab fab-secondary" onClick={spinRoulette} title="점심 랜덤 뽑기">🎲</button>
-          )}
-          <button className="fab" onClick={openAddModal}>＋</button>
+      
+      {/* ⭐️ 당겨서 새로고침 스피너 (상단 숨김) */}
+      <div className="ptr-container" style={{ transform: `translateY(${pullDistance > 0 ? pullDistance - 60 : -60}px)` }}>
+        <div className={`ptr-icon ${isRefreshing ? 'spinning' : ''}`} style={{ transform: `rotate(${pullDistance * 2}deg)` }}>
+          {!isRefreshing && '⬇️'}
         </div>
       </div>
 
-      {/* ⭐️ 룰렛 팝업창 */}
+      <div 
+        className="container-wrapper" 
+        style={{ transform: `translateY(${pullDistance * 0.5}px)` }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div className="container">
+          <div ref={headerRef} className="sticky-top-area">
+            <div className="header">
+              <div style={{display:'flex', alignItems:'center'}}>
+                <h2>KIPFA 점심 추천</h2>
+                {isLoading && !isInitialLoading && !isRefreshing && <div className="header-loader"></div>}
+              </div>
+              <div><span id="user-info">👋 {session.name}님</span><button className="logout-btn" onClick={handleLogout}>로그아웃</button></div>
+            </div>
+            <div className="tabs">
+              <div className={`tab ${activeTab === 'pick' ? 'active' : ''}`} onClick={() => setActiveTab('pick')}>📅 이번주/다음주 Pick</div>
+              <div className={`tab ${activeTab === 'all' ? 'active' : ''}`} onClick={() => setActiveTab('all')}>📂 전체 맛집 보기</div>
+            </div>
+          </div>
+
+          {isInitialLoading ? (
+            <div>
+              <h3 className="section-title">데이터를 불러오는 중입니다...</h3>
+              {[1, 2, 3].map(i => (
+                <div key={i} className="skeleton-card">
+                  <div className="skeleton skeleton-tag"></div>
+                  <div className="skeleton skeleton-text" style={{width:'30%', marginBottom:'5px'}}></div>
+                  <div className="skeleton skeleton-title"></div>
+                  <div className="skeleton skeleton-text" style={{height:'40px', width:'100%', borderRadius:'10px'}}></div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <>
+              {activeTab === 'pick' && (
+                <div>
+                  <h3 className="section-title">🎯 이번주 수/금 회식 후보</h3>
+                  {filteredData.tw.length === 0 ? (
+                    <div className="empty-state">
+                      <div className="empty-icon">🍳</div>
+                      <div className="empty-title">앗! 추천된 맛집이 없어요</div>
+                      <div className="empty-desc">우측 하단의 <b>＋ 버튼</b>을 눌러<br/>이번 주 맛집을 가장 먼저 추천해 보세요!</div>
+                    </div>
+                  ) : filteredData.tw.map(m => <Card key={m.ID} menu={m} type="pick" />)}
+                  
+                  <h3 className="section-title">🗓️ 다음주 수/금 회식 후보</h3>
+                  {filteredData.nw.length === 0 ? (
+                    <div className="empty-state">
+                      <div className="empty-icon">🗓️</div>
+                      <div className="empty-title">다음 주 일정도 비어있네요</div>
+                      <div className="empty-desc">미리미리 예약해 두는 센스!<br/>새로운 맛집을 공유해 주세요.</div>
+                    </div>
+                  ) : filteredData.nw.map(m => <Card key={m.ID} menu={m} type="pick" />)}
+                </div>
+              )}
+
+              {activeTab === 'all' && (
+                <div>
+                  <div className="filter-section">
+                    <input type="text" className="search-input" placeholder="🔍 맛집 검색..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+                    <select className="category-select" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
+                      <option value="all">전체 카테고리</option>
+                      <option value="한식">🍚 한식</option>
+                      <option value="중식">🥢 중식</option>
+                      <option value="일식">🍣 일식</option>
+                      <option value="양식">🍝 양식</option>
+                      <option value="분식">🥘 분식</option>
+                      <option value="기타">🍽️ 기타</option>
+                    </select>
+                  </div>
+                  {filteredData.allF.length === 0 ? (
+                    <div className="empty-state" style={{marginTop: '40px'}}>
+                      <div className="empty-icon">🔍</div>
+                      <div className="empty-title">검색 결과가 없습니다</div>
+                      <div className="empty-desc">다른 검색어나 카테고리로<br/>다시 찾아보세요!</div>
+                    </div>
+                  ) : filteredData.allF.map(m => <Card key={m.ID} menu={m} type="all" />)}
+                </div>
+              )}
+            </>
+          )}
+
+          <div className="fab-container">
+            {activeTab === 'pick' && (
+              <button className="fab fab-secondary" onClick={spinRoulette} title="점심 랜덤 뽑기">🎲</button>
+            )}
+            <button className="fab" onClick={openAddModal}>＋</button>
+          </div>
+        </div>
+      </div>
+
       {isRouletteOpen && (
         <div className="modal" onClick={() => !isSpinning && setIsRouletteOpen(false)}>
           <div className="modal-content" style={{textAlign: 'center', padding: '40px 20px'}} onClick={e => e.stopPropagation()}>
-            <h3 style={{fontSize: '24px', fontWeight: '900', color: '#2c3e50', marginBottom: '20px'}}>🎲 오늘의 점심은?</h3>
+            <h3 style={{fontSize: '24px', fontWeight: '900', color: '#2c3e50', marginBottom: '20px'}}>🎲 오늘의 회식 Pick은?</h3>
             
             {rouletteResult && (
               <div style={{background: '#f8f9fa', padding: '30px 20px', borderRadius: '20px', border: '2px solid #e1e5e8', marginBottom: '20px', transition: 'all 0.1s'}}>
@@ -518,18 +568,17 @@ export default function LunchApp() {
               {isSpinning ? '고르는 중...' : '다시 돌리기 🔄'}
             </button>
             {!isSpinning && rouletteResult && (
-              <button className="btn-outline" onClick={() => copyToClipboard(`[오늘의 점심 추천] ${rouletteResult['가게명']}\n🍽️ 메뉴: ${rouletteResult['대표메뉴']}\n📍 ${rouletteResult['가게URL']}`)}>
-                📤 결과 카톡으로 공유하기
+              <button className="btn-outline" onClick={() => copyToClipboard(`[오늘의 점심 룰렛 결과!]\n🏠 ${rouletteResult['가게명']}\n🍽️ 메뉴: ${rouletteResult['대표메뉴']}\n📍 ${rouletteResult['가게URL']}`)}>
+                📤 결과 공유하기
               </button>
             )}
           </div>
         </div>
       )}
 
-
       {isModalOpen && (
-        <div className="modal">
-          <div className="modal-content">
+        <div className="modal" onClick={() => setIsModalOpen(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
             <h3 style={{marginTop:0, marginBottom:'20px', fontSize:'22px', fontWeight:'900', color:'#2c3e50', borderBottom:'3px solid #3498db', paddingBottom:'12px', display:'inline-block'}}>
               {modalMode === 'add' ? '✨ 새로운 메뉴 추천' : modalMode === 'edit' ? '✏️ 추천 정보 수정' : '🔄 다시 Pick 하기'}
             </h3>
@@ -571,8 +620,8 @@ export default function LunchApp() {
       )}
 
       {isDeleteModalOpen && (
-        <div className="modal">
-          <div className="modal-content">
+        <div className="modal" onClick={() => setIsDeleteModalOpen(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
             <h3 style={{marginTop:0, marginBottom:'15px', color:'#e74c3c', fontSize:'22px', fontWeight:'900'}}>🚨 맛집 삭제 요청</h3>
             <p style={{fontSize:'13px', color:'#555', marginBottom:'20px', fontWeight:'600'}}>삭제 사유를 선택해 주세요.</p>
             <div className="form-group"><label>삭제 사유</label>
@@ -595,6 +644,7 @@ export default function LunchApp() {
     const dateStr = String(m['추천방문일']).split('T')[0] || '미정';
     const cleanName = (m['가게명'] || '').replace(/\s/g, '');
     const isPicked = filteredData.pickNames.includes(cleanName);
+    const isLiking = reactionLoadingId === m.ID;
 
     return (
       <div className="menu-card">
@@ -619,11 +669,19 @@ export default function LunchApp() {
           <a href={m['가게URL']} target="_blank" className="map-link">🗺️ 지도/가게정보 보기</a>
           {type === 'pick' ? (
             <div className="reaction-group">
-              <button className={`like-btn ${likes.includes(session?.pin as string) ? 'liked' : ''}`} onClick={() => toggleReaction(m.ID, 'toggle_like')}>
-                {likes.includes(session?.pin as string) ? '❤️' : '🤍'} {likes.length}
+              <button 
+                className={`like-btn ${likes.includes(session?.pin as string) ? 'liked' : ''}`} 
+                onClick={() => toggleReaction(m.ID, 'toggle_like')}
+                disabled={isLiking}
+              >
+                {isLiking ? '⏳' : (likes.includes(session?.pin as string) ? '❤️' : '🤍')} {likes.length}
               </button>
-              <button className={`dislike-btn ${dislikes.includes(session?.pin as string) ? 'liked' : ''}`} onClick={() => toggleReaction(m.ID, 'toggle_dislike')}>
-                {dislikes.includes(session?.pin as string) ? '💔' : '👎'} {dislikes.length}
+              <button 
+                className={`dislike-btn ${dislikes.includes(session?.pin as string) ? 'liked' : ''}`} 
+                onClick={() => toggleReaction(m.ID, 'toggle_dislike')}
+                disabled={isLiking}
+              >
+                {isLiking ? '⏳' : (dislikes.includes(session?.pin as string) ? '💔' : '👎')} {dislikes.length}
               </button>
             </div>
           ) : (
@@ -631,7 +689,6 @@ export default function LunchApp() {
           )}
         </div>
         
-        {/* ⭐️ 공유 및 다시 Pick 버튼 그룹 */}
         {type === 'all' && (
           <div style={{display: 'flex', gap: '10px'}}>
             <button className="btn-outline" style={{flex: 2}} onClick={() => openEditModal(m, true)}>🔄 다시 Pick 하기</button>
