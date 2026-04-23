@@ -20,10 +20,7 @@ export default function LunchApp() {
   
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
-  
-  // ⭐️ 좋아요/싫어요 정확한 로딩 분리를 위해 상태 구조 변경
   const [reactionLoading, setReactionLoading] = useState<{id: string, type: string} | null>(null);
-  
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -115,6 +112,11 @@ export default function LunchApp() {
     }
   }, [dateOptions]);
 
+  // ⭐️ 탭 전환 시 화면 최상단으로 부드럽게 스크롤
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [activeTab]);
+
   const fetchMenus = async (silent = false) => {
     if (!silent && menus.length === 0 && !isRefreshing) setIsInitialLoading(true);
     if (!silent && menus.length > 0 && !isRefreshing) setIsLoading(true);
@@ -137,10 +139,7 @@ export default function LunchApp() {
     
     setIsLoading(true);
     try {
-      const res = await fetch(SCRIPT_URL, { 
-        method: "POST", 
-        body: JSON.stringify({ action: "verify_pin", pin: pin }) 
-      });
+      const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "verify_pin", pin: pin }) });
       const result = await res.json();
       
       if (result.success) {
@@ -246,13 +245,33 @@ export default function LunchApp() {
     } catch (e) { showToast("🚨 오류 발생"); } finally { setIsLoading(false); }
   };
 
-  // ⭐️ 토글 반응 함수 (누른 버튼의 종류까지 기억하도록 수정)
+  // ⭐️ 좋아요 토글 로직 고도화 (취소 여부 판단 후 토스트 알림)
   const toggleReaction = async (id: string, action: string) => {
     setReactionLoading({ id, type: action });
     try {
+      // 1. 현재 취소하는 건지, 새로 누르는 건지 내부 데이터로 판단
+      const targetMenu = menus.find(m => m.ID === id);
+      let isCancel = false;
+      if (targetMenu) {
+        const list = action === 'toggle_like' 
+          ? String(targetMenu['좋아요누른사람'] || '').split(',') 
+          : String(targetMenu['싫어요누른사람'] || '').split(',');
+        isCancel = list.includes(session?.pin as string);
+      }
+
+      // 2. 서버 통신
       const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action, id, userPin: session?.pin }) });
       const result = await res.json();
-      if (result.success) fetchMenus(true);
+      
+      // 3. 결과에 맞게 토스트 알림 띄우기
+      if (result.success) {
+        fetchMenus(true);
+        if (isCancel) {
+          showToast("🗑️ 취소되었습니다.");
+        } else {
+          showToast(action === 'toggle_like' ? "❤️ 좋아요를 눌렀습니다!" : "💔 싫어요를 눌렀습니다.");
+        }
+      }
     } catch (e) { showToast("🚨 오류 발생"); } finally { setReactionLoading(null); }
   };
 
@@ -405,8 +424,6 @@ export default function LunchApp() {
         .map-link:active { transform: scale(0.95); }
         
         .reaction-group { display: flex; gap: 8px; }
-        
-        /* ⭐️ 하트 뿅! 팝 애니메이션 추가 */
         @keyframes heartPop { 0% { transform: scale(0.9); } 50% { transform: scale(1.15); } 100% { transform: scale(1); } }
         .like-btn, .dislike-btn { background: white; border: 1px solid #eee; padding: 6px 12px; border-radius: 20px; cursor: pointer; font-weight: 800; display: flex; align-items: center; gap: 4px; font-size: 13px; transition: all 0.2s; }
         .like-btn.liked { background: #fa5252; color: white; border-color: #fa5252; animation: heartPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); } 
@@ -416,11 +433,11 @@ export default function LunchApp() {
         .btn-outline { width: 100%; background: white; padding: 12px; font-size: 14px; font-weight: 800; border-radius: 10px; cursor: pointer; border: 1px solid #3498db; color: #3498db; margin-top: 15px; transition: 0.2s; }
         .btn-outline:active { background: #f0f8ff; transform: scale(0.98); }
 
-        /* ⭐️ 버튼 위치 오류 해결: 밖으로 빼서 고정! */
-        .fab-container { position: fixed; bottom: 25px; right: 25px; display: flex; flex-direction: column; gap: 10px; z-index: 1000; }
-        .fab { background: linear-gradient(135deg, #3498db, #2ecc71); color: white; width: 60px; height: 60px; border-radius: 50%; font-size: 30px; border: none; box-shadow: 0 6px 20px rgba(46, 204, 113, 0.4); display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        /* ⭐️ 버튼 크기 56px 로 완벽 통일 및 정렬 */
+        .fab-container { position: fixed; bottom: 25px; right: 25px; display: flex; flex-direction: column; gap: 12px; z-index: 1000; align-items: flex-end; }
+        .fab { background: linear-gradient(135deg, #3498db, #2ecc71); color: white; width: 56px; height: 56px; border-radius: 50%; font-size: 28px; border: none; box-shadow: 0 6px 20px rgba(46, 204, 113, 0.4); display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .fab:active { transform: scale(0.85); }
-        .fab-secondary { background: white; color: #2c3e50; width: 50px; height: 50px; font-size: 24px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); align-self: flex-end;}
+        .fab-secondary { background: white; color: #2c3e50; font-size: 26px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
 
         .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 2000; backdrop-filter: blur(3px); animation: fadeIn 0.2s ease-out; }
         .modal-content { background: white; padding: 25px; border-radius: 24px; width: 90%; max-width: 400px; max-height: 85vh; overflow-y: auto; text-align: left; box-shadow: 0 20px 40px rgba(0,0,0,0.2); animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
@@ -501,7 +518,6 @@ export default function LunchApp() {
                   {filteredData.tw.length === 0 ? (
                     <div className="empty-state">
                       <div className="empty-icon">🍳</div>
-                      {/* ⭐️ 텍스트 수정 반영 */}
                       <div className="empty-title">후보가 없습니다.</div>
                       <div className="empty-desc">새로운 맛집을 공유해 주세요.</div>
                     </div>
@@ -511,7 +527,6 @@ export default function LunchApp() {
                   {filteredData.nw.length === 0 ? (
                     <div className="empty-state">
                       <div className="empty-icon">🗓️</div>
-                      {/* ⭐️ 텍스트 수정 반영 */}
                       <div className="empty-title">후보가 없습니다.</div>
                       <div className="empty-desc">새로운 맛집을 공유해 주세요.</div>
                     </div>
@@ -547,7 +562,6 @@ export default function LunchApp() {
         </div>
       </div>
 
-      {/* ⭐️ 버튼을 container-wrapper(스크롤 당기기) 바깥으로 빼서 고정되도록 수정! */}
       <div className="fab-container">
         {activeTab === 'pick' && (
           <button className="fab fab-secondary" onClick={spinRoulette} title="점심 랜덤 뽑기">🎲</button>
@@ -649,7 +663,6 @@ export default function LunchApp() {
     const cleanName = (m['가게명'] || '').replace(/\s/g, '');
     const isPicked = filteredData.pickNames.includes(cleanName);
     
-    // ⭐️ 어떤 액션(좋아요/싫어요)이 현재 로딩 중인지 정확히 파악!
     const isLiking = reactionLoading?.id === m.ID && reactionLoading?.type === 'toggle_like';
     const isDisliking = reactionLoading?.id === m.ID && reactionLoading?.type === 'toggle_dislike';
 
@@ -676,7 +689,6 @@ export default function LunchApp() {
           <a href={m['가게URL']} target="_blank" className="map-link">🗺️ 지도/가게정보 보기</a>
           {type === 'pick' ? (
             <div className="reaction-group">
-              {/* ⭐️ 하트 버튼에 팝 효과 클래스가 자동 토글됨! 로딩 시 한쪽만 ⏳ 표시됨 */}
               <button 
                 className={`like-btn ${likes.includes(session?.pin as string) ? 'liked' : ''}`} 
                 onClick={() => toggleReaction(m.ID, 'toggle_like')}
