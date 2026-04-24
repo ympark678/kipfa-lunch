@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzRoJPOYW8FB1Ck69hOl56aluBxNDjUAPewlsTEgIvK39y6hShhx4SU6K2enx0R29NLAQ/exec";
+
 const CATEGORY_EMOJI: Record<string, string> = {
   "한식": "🍚 한식",
   "중식": "🥢 중식",
@@ -31,10 +32,9 @@ export default function LunchApp() {
   const [stickyTop, setStickyTop] = useState(135);
   const [isScrolled, setIsScrolled] = useState(false);
   
-  // ⭐️ 스마트 스크롤(스크롤 방향 감지)을 위한 상태
+  // ⭐️ 스마트 스티키(스크롤 방향 감지) 전용 상태
   const [isScrollDown, setIsScrollDown] = useState(false);
-  const lastScrollY = useRef(0);
-
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"add" | "edit" | "repick">("add");
   const [editTargetId, setEditTargetId] = useState<string | null>(null);
@@ -44,9 +44,15 @@ export default function LunchApp() {
   const [deleteReason, setDeleteReason] = useState("폐업/이전");
 
   const [formData, setFormData] = useState({
-    visitDate: "", category: "한식", shopName: "", shopUrl: "",
-    priceMin: "9,000", priceMax: "15,000",
-    menu1: "", menu2: "", menu3: "" 
+    visitDate: "", 
+    category: "한식", 
+    shopName: "", 
+    shopUrl: "",
+    priceMin: "9,000", 
+    priceMax: "15,000",
+    menu1: "", 
+    menu2: "", 
+    menu3: "" 
   });
 
   const [isRouletteOpen, setIsRouletteOpen] = useState(false);
@@ -58,12 +64,23 @@ export default function LunchApp() {
   const touchStartY = useRef(0);
 
   const dateOptions = useMemo(() => {
-    let today = new Date(); today.setHours(0,0,0,0);
-    let day = today.getDay(), diff = today.getDate() - day + (day === 0 ? -6 : 1);
-    let start = new Date(today); start.setDate(diff);
-    const offsets = [{d:2, l:'이번주 수'}, {d:4, l:'이번주 금'}, {d:9, l:'다음주 수'}, {d:11, l:'다음주 금'}];
+    let today = new Date(); 
+    today.setHours(0,0,0,0);
+    let day = today.getDay();
+    let diff = today.getDate() - day + (day === 0 ? -6 : 1);
+    let start = new Date(today); 
+    start.setDate(diff);
+    
+    const offsets = [
+      {d: 2, l: '이번주 수'}, 
+      {d: 4, l: '이번주 금'}, 
+      {d: 9, l: '다음주 수'}, 
+      {d: 11, l: '다음주 금'}
+    ];
+    
     return offsets.map(o => {
-      let d = new Date(start); d.setDate(start.getDate() + o.d);
+      let d = new Date(start); 
+      d.setDate(start.getDate() + o.d);
       if (d >= today) {
         let f = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
         return { label: `[${o.l}] ${f}`, value: f };
@@ -74,7 +91,9 @@ export default function LunchApp() {
 
   const priceOptions = useMemo(() => {
     const opts = [];
-    for (let i = 500; i <= 50000; i += 500) opts.push(i.toLocaleString());
+    for (let i = 500; i <= 50000; i += 500) {
+      opts.push(i.toLocaleString());
+    }
     return opts;
   }, []);
 
@@ -83,22 +102,7 @@ export default function LunchApp() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  useEffect(() => {
-    const hideA2HS = localStorage.getItem('hideA2HS');
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
-    if (!isStandalone && hideA2HS !== 'true') {
-      if (/iphone|ipad|ipod|android/.test(window.navigator.userAgent.toLowerCase())) {
-        setTimeout(() => setShowA2HS(true), 2000);
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    const updateStickyGap = () => { if (headerRef.current) setStickyTop(Math.floor(headerRef.current.getBoundingClientRect().height) - 1); };
-    if (session) { updateStickyGap(); window.addEventListener("resize", updateStickyGap); }
-    return () => window.removeEventListener("resize", updateStickyGap);
-  }, [session, activeTab]);
-
+  // 로그인 상태 확인
   useEffect(() => {
     const savedPin = localStorage.getItem("lunchUserPin");
     const savedName = localStorage.getItem("lunchUserName");
@@ -110,34 +114,58 @@ export default function LunchApp() {
     }
   }, []);
 
+  // 기본 날짜 세팅
   useEffect(() => {
     if (dateOptions.length > 0 && !formData.visitDate) {
       setFormData(prev => ({ ...prev, visitDate: dateOptions[0].value }));
     }
   }, [dateOptions]);
 
+  // 탭 변경 시 스크롤 최상단으로
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    setIsScrollDown(false); // 탭 바꿀 때 숨겨진 필터 다시 보이기
   }, [activeTab]);
 
-  // ⭐️ 스크롤 감지 로직 고도화 (방향 감지 추가)
+  // ⭐️ 스마트 스티키: 스크롤 방향 감지 로직 (부드럽게 개선)
   useEffect(() => {
+    let lastY = window.scrollY;
+    
     const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      setIsScrolled(currentScrollY > 10);
+      const currentY = window.scrollY;
+      
+      // 헤더 유리 효과 (10px 이상 내리면 켜짐)
+      setIsScrolled(currentY > 10);
 
-      if (currentScrollY <= 10) {
-        setIsScrollDown(false); // 맨 위면 무조건 보임
-      } else if (currentScrollY > lastScrollY.current + 10) {
-        setIsScrollDown(true); // 아래로 내릴 때 숨김
-      } else if (currentScrollY < lastScrollY.current - 10) {
-        setIsScrollDown(false); // 위로 올릴 때 다시 보임
+      // 필터 숨김 효과 (50px 이상 내려갔을 때부터 작동)
+      if (currentY > 50 && currentY > lastY + 15) {
+        // 아래로 스크롤 할 때 숨김
+        setIsScrollDown(true);
+      } else if (currentY < lastY - 15 || currentY <= 50) {
+        // 위로 15px 이상 튕겨 올리거나 맨 위로 갔을 때 다시 보임
+        setIsScrollDown(false);
       }
-      lastScrollY.current = currentScrollY;
+      
+      lastY = currentY;
     };
+
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // 헤더 높이 계산하여 Sticky Top 위치 동적 지정
+  useEffect(() => {
+    const updateStickyGap = () => { 
+      if (headerRef.current) {
+        setStickyTop(Math.floor(headerRef.current.getBoundingClientRect().height) - 1); 
+      }
+    };
+    if (session) { 
+      updateStickyGap(); 
+      window.addEventListener("resize", updateStickyGap); 
+    }
+    return () => window.removeEventListener("resize", updateStickyGap);
+  }, [session, activeTab]);
 
   const fetchMenus = async (silent = false) => {
     if (!silent && menus.length === 0 && !isRefreshing) setIsInitialLoading(true);
@@ -147,12 +175,34 @@ export default function LunchApp() {
       const res = await fetch(SCRIPT_URL);
       const data = await res.json();
       setMenus(data);
-    } catch (e) { showToast("🚨 데이터 로딩 실패"); } 
-    finally { 
+    } catch (e) { 
+      showToast("🚨 데이터 로딩 실패"); 
+    } finally { 
       setIsInitialLoading(false);
       setIsLoading(false); 
       setIsRefreshing(false); 
       setPullDistance(0);
+    }
+  };
+
+  // URL 자동 파싱 로직
+  const handleUrlBlur = async (url: string) => {
+    if (!url || (!url.includes("naver") && !url.includes("kakao"))) return;
+    
+    showToast("🔍 가게 정보 분석 중...");
+    try {
+      const res = await fetch(SCRIPT_URL, { 
+        method: "POST", 
+        body: JSON.stringify({ action: "parse_url", url }) 
+      });
+      const result = await res.json();
+      if (result.success && result.shopName) {
+        setFormData(prev => ({ ...prev, shopName: result.shopName }));
+        showToast(`✨ '${result.shopName}' 정보를 가져왔습니다.`);
+        checkDuplicate('name', result.shopName);
+      }
+    } catch (e) { 
+      console.error(e); 
     }
   };
 
@@ -161,7 +211,10 @@ export default function LunchApp() {
     
     setIsLoading(true);
     try {
-      const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "verify_pin", pin: pin }) });
+      const res = await fetch(SCRIPT_URL, { 
+        method: "POST", 
+        body: JSON.stringify({ action: "verify_pin", pin: pin }) 
+      });
       const result = await res.json();
       
       if (result.success) {
@@ -173,7 +226,11 @@ export default function LunchApp() {
       } else {
         showToast("❌ 등록되지 않은 번호입니다.");
       }
-    } catch (e) { showToast("🚨 서버 연결 실패"); } finally { setIsLoading(false); }
+    } catch (e) { 
+      showToast("🚨 서버 연결 실패"); 
+    } finally { 
+      setIsLoading(false); 
+    }
   };
 
   const handleLogout = () => {
@@ -186,11 +243,13 @@ export default function LunchApp() {
   const checkDuplicate = (type: 'name' | 'url', value: string) => {
     if (modalMode === 'edit' || modalMode === 'repick') return;
     if (value.trim().length < 2) return;
+    
     const search = value.replace(/\s/g, '');
     const found = menus.find(m => {
       const target = (type === 'name' ? m['가게명'] : (m['가게URL'] || '')).replace(/\s/g, '');
       return target.includes(search) || search.includes(target);
     });
+    
     if (found && confirm(`이미 등록된 맛집인 것 같아요. [${found['가게명']}]\n정보를 불러올까요?`)) {
       fillFormWithData(found);
       setModalMode('edit');
@@ -202,16 +261,32 @@ export default function LunchApp() {
     const ms = String(m['대표메뉴'] || '').split(', ');
     const ps = String(m['가격대'] || '').match(/[\d,]+/g);
     setFormData(prev => ({
-      ...prev, category: m['카테고리'] || '한식', shopName: m['가게명'] || '', shopUrl: m['가게URL'] || '',
-      menu1: ms[0] || '', menu2: ms[1] || '', menu3: ms[2] || '',
-      priceMin: (ps && ps[0]) ? ps[0] : "9,000", priceMax: (ps && ps[1]) ? ps[1] : "15,000"
+      ...prev, 
+      category: m['카테고리'] || '한식', 
+      shopName: m['가게명'] || '', 
+      shopUrl: m['가게URL'] || '',
+      menu1: ms[0] || '', 
+      menu2: ms[1] || '', 
+      menu3: ms[2] || '',
+      priceMin: (ps && ps[0]) ? ps[0] : "9,000", 
+      priceMax: (ps && ps[1]) ? ps[1] : "15,000"
     }));
   };
 
   const openAddModal = () => {
     setModalMode("add");
     setEditTargetId(null);
-    setFormData({ visitDate: dateOptions[0]?.value || "", category: "한식", shopName: "", shopUrl: "", priceMin: "9,000", priceMax: "15,000", menu1: "", menu2: "", menu3: "" });
+    setFormData({ 
+      visitDate: dateOptions[0]?.value || "", 
+      category: "한식", 
+      shopName: "", 
+      shopUrl: "", 
+      priceMin: "9,000", 
+      priceMax: "15,000", 
+      menu1: "", 
+      menu2: "", 
+      menu3: "" 
+    });
     setIsModalOpen(true);
   };
 
@@ -219,13 +294,21 @@ export default function LunchApp() {
     setModalMode(isRepick ? "repick" : "edit");
     setEditTargetId(isRepick ? null : m.ID);
     fillFormWithData(m);
-    if (!isRepick) setFormData(prev => ({ ...prev, visitDate: String(m["추천방문일"]).split("T")[0] }));
-    else setFormData(prev => ({ ...prev, visitDate: dateOptions[0]?.value || "" }));
+    
+    if (!isRepick) {
+      setFormData(prev => ({ ...prev, visitDate: String(m["추천방문일"]).split("T")[0] }));
+    } else {
+      setFormData(prev => ({ ...prev, visitDate: dateOptions[0]?.value || "" }));
+    }
+    
     setIsModalOpen(true);
   };
 
   const handleModalSubmit = async () => {
-    if (!formData.shopName.trim() || !formData.menu1.trim()) return showToast("⚠️ 가게명, 대표메뉴1을 입력하세요.");
+    if (!formData.shopName.trim() || !formData.menu1.trim()) {
+      return showToast("⚠️ 가게명, 대표메뉴1을 입력하세요.");
+    }
+    
     const duplicate = menus.find(m => {
       const target = (m['가게명'] || '').replace(/\s/g, '');
       const search = formData.shopName.replace(/\s/g, '');
@@ -242,28 +325,50 @@ export default function LunchApp() {
     try {
       const action = (modalMode === "edit") ? "edit_menu" : "add_menu";
       const payload = { 
-        action, id: editTargetId, author: session?.name, visitDate: formData.visitDate, 
-        category: formData.category, shopName: formData.shopName.trim(), shopUrl: urlMatch ? urlMatch[1] : '', 
-        menus: combinedMenus, price: `${formData.priceMin}원 ~ ${formData.priceMax}원`
+        action, 
+        id: editTargetId, 
+        author: session?.name, 
+        visitDate: formData.visitDate, 
+        category: formData.category, 
+        shopName: formData.shopName.trim(), 
+        shopUrl: urlMatch ? urlMatch[1] : '', 
+        menus: combinedMenus, 
+        price: `${formData.priceMin}원 ~ ${formData.priceMax}원`
       };
+      
       const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
       const result = await res.json();
+      
       if (result.success) {
         showToast(modalMode === "edit" ? "✨ 수정 완료!" : "✨ 추천 완료!");
         setIsModalOpen(false);
         fetchMenus(true);
       }
-    } catch (e) { showToast("🚨 통신 오류"); } finally { setIsLoading(false); }
+    } catch (e) { 
+      showToast("🚨 통신 오류"); 
+    } finally { 
+      setIsLoading(false); 
+    }
   };
 
   const submitDeleteRequest = async () => {
     setIsLoading(true);
     setIsDeleteModalOpen(false);
     try {
-      const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "request_delete", id: deleteTargetId, reason: deleteReason }) });
+      const res = await fetch(SCRIPT_URL, { 
+        method: "POST", 
+        body: JSON.stringify({ action: "request_delete", id: deleteTargetId, reason: deleteReason }) 
+      });
       const result = await res.json();
-      if (result.success) { showToast("🗑️ 삭제 요청 접수!"); fetchMenus(true); }
-    } catch (e) { showToast("🚨 오류 발생"); } finally { setIsLoading(false); }
+      if (result.success) { 
+        showToast("🗑️ 삭제 요청 접수!"); 
+        fetchMenus(true); 
+      }
+    } catch (e) { 
+      showToast("🚨 오류 발생"); 
+    } finally { 
+      setIsLoading(false); 
+    }
   };
 
   const toggleReaction = async (id: string, action: string) => {
@@ -272,43 +377,59 @@ export default function LunchApp() {
       const targetMenu = menus.find(m => m.ID === id);
       let isCancel = false;
       if (targetMenu) {
-        const list = action === 'toggle_like' ? String(targetMenu['좋아요누른사람'] || '').split(',') : String(targetMenu['싫어요누른사람'] || '').split(',');
+        const list = action === 'toggle_like' 
+          ? String(targetMenu['좋아요누른사람'] || '').split(',') 
+          : String(targetMenu['싫어요누른사람'] || '').split(',');
         isCancel = list.includes(session?.pin as string);
       }
 
-      const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action, id, userPin: session?.pin }) });
+      const res = await fetch(SCRIPT_URL, { 
+        method: "POST", 
+        body: JSON.stringify({ action, id, userPin: session?.pin }) 
+      });
       const result = await res.json();
+      
       if (result.success) {
         fetchMenus(true);
-        // ⭐️ 취소 시 명확한 텍스트로 변경
         if (isCancel) {
           showToast(action === 'toggle_like' ? "🤍 좋아요가 취소되었습니다." : "👎 싫어요가 취소되었습니다.");
         } else {
           showToast(action === 'toggle_like' ? "❤️ 좋아요를 눌렀습니다!" : "💔 싫어요를 눌렀습니다.");
         }
       }
-    } catch (e) { showToast("🚨 오류 발생"); } finally { setReactionLoading(null); }
+    } catch (e) { 
+      showToast("🚨 오류 발생"); 
+    } finally { 
+      setReactionLoading(null); 
+    }
   };
 
   const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text).then(() => {
-      showToast("📋 링크가 복사되었습니다!");
-    }).catch(() => { showToast("🚨 복사 실패"); });
+    navigator.clipboard.writeText(text)
+      .then(() => showToast("📋 링크가 복사되었습니다!"))
+      .catch(() => showToast("🚨 복사 실패"));
   };
 
   const filteredData = useMemo(() => {
-    const today = new Date(); today.setHours(0,0,0,0);
-    const day = today.getDay(); const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+    const today = new Date(); 
+    today.setHours(0,0,0,0);
+    const day = today.getDay(); 
+    const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+    
     const thisS = new Date(today); thisS.setDate(diff);
     const nextS = new Date(thisS); nextS.setDate(thisS.getDate() + 7);
     const nextN = new Date(nextS); nextN.setDate(nextS.getDate() + 7);
 
-    const tw: any[] = []; const nw: any[] = []; const pickNames: string[] = [];
+    const tw: any[] = []; 
+    const nw: any[] = []; 
+    const pickNames: string[] = [];
+    
     menus.forEach(m => {
       if (!m["추천방문일"]) return;
       const d = new Date(String(m["추천방문일"]).split("T")[0] + "T00:00:00");
       if (d >= thisS && d < nextN) pickNames.push(String(m["가게명"]).replace(/\s/g, ""));
-      if (d >= thisS && d < nextS) tw.push(m); else if (d >= nextS && d < nextN) nw.push(m);
+      if (d >= thisS && d < nextS) tw.push(m); 
+      else if (d >= nextS && d < nextN) nw.push(m);
     });
 
     const uniqueMap = new Map();
@@ -333,37 +454,69 @@ export default function LunchApp() {
   const spinRoulette = () => {
     const pickList = [...filteredData.tw, ...filteredData.nw];
     if (pickList.length === 0) return showToast("⚠️ 추천된 회식 후보가 없습니다.");
+    
     setIsRouletteOpen(true);
     setIsSpinning(true);
     let count = 0;
+    
     const interval = setInterval(() => {
       const randomIndex = Math.floor(Math.random() * pickList.length);
       setRouletteResult(pickList[randomIndex]);
       count++;
-      if (count > 15) { clearInterval(interval); setIsSpinning(false); }
+      if (count > 15) { 
+        clearInterval(interval); 
+        setIsSpinning(false); 
+      }
     }, 100);
   };
 
-  const handleTouchStart = (e: any) => { if (window.scrollY === 0) touchStartY.current = e.touches[0].clientY; };
+  const handleTouchStart = (e: any) => { 
+    if (window.scrollY === 0) touchStartY.current = e.touches[0].clientY; 
+  };
+  
   const handleTouchMove = (e: any) => {
     if (touchStartY.current > 0 && window.scrollY === 0) {
-      const y = e.touches[0].clientY; const diff = y - touchStartY.current;
+      const y = e.touches[0].clientY; 
+      const diff = y - touchStartY.current;
       if (diff > 0 && diff < 150) setPullDistance(diff * 0.4); 
     }
   };
+  
   const handleTouchEnd = () => {
-    if (pullDistance > 40) { setIsRefreshing(true); fetchMenus(); } 
-    else { setPullDistance(0); }
+    if (pullDistance > 40) { 
+      setIsRefreshing(true); 
+      fetchMenus(); 
+    } else { 
+      setPullDistance(0); 
+    }
     touchStartY.current = 0;
   };
 
+  // 로그인되지 않았을 때 렌더링
   if (!session) return (
     <>
       <style>{`
         @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
-        :root { --bg-main-rgb: 247, 249, 250; --text-main: #2c3e50; --border: #e1e5e8; --input-bg: #ffffff; }
-        @media (prefers-color-scheme: dark) { :root { --bg-main-rgb: 18, 18, 18; --text-main: #e0e0e0; --border: #333333; --input-bg: #2c2c2c; } }
-        body { font-family: 'Pretendard', sans-serif; background-color: rgb(var(--bg-main-rgb)); margin: 0; padding: 0; color: var(--text-main); } 
+        
+        :root { 
+          --bg-main-rgb: 247, 249, 250; 
+          --text-main: #2c3e50; 
+          --border: #e1e5e8; 
+          --input-bg: #ffffff; 
+        }
+        @media (prefers-color-scheme: dark) { 
+          :root { 
+            --bg-main-rgb: 18, 18, 18; 
+            --text-main: #e0e0e0; 
+            --border: #333333; 
+            --input-bg: #2c2c2c; 
+          } 
+        }
+        body { 
+          font-family: 'Pretendard', sans-serif; 
+          background-color: rgb(var(--bg-main-rgb)); 
+          margin: 0; padding: 0; color: var(--text-main); 
+        } 
         .container { max-width: 500px; margin: 0 auto; padding: 0 20px 90px 20px; text-align: center; margin-top: 100px; } 
         input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         input[type="number"] { -moz-appearance: textfield; }
@@ -378,12 +531,22 @@ export default function LunchApp() {
       <div className="container">
         <h1 style={{marginBottom: '10px', fontSize: '26px', fontWeight: '900', letterSpacing: '-1px'}}>🏢 KIPFA 점심 추천</h1>
         <p style={{color:'var(--text-main)', opacity: 0.7, marginBottom:'30px', fontWeight: '500'}}>휴대폰 뒷자리 4자리를 입력하세요</p>
-        <input type="number" className="pin-input" placeholder="0000" value={pin} onChange={e => setPin(e.target.value.slice(0,4))} onKeyDown={e => e.key === 'Enter' && handleLogin()} />
-        <button className="btn" onClick={handleLogin}>{isLoading ? "확인 중..." : "입장하기"}</button>
+        <input 
+          type="number" 
+          className="pin-input" 
+          placeholder="0000" 
+          value={pin} 
+          onChange={e => setPin(e.target.value.slice(0,4))} 
+          onKeyDown={e => e.key === 'Enter' && handleLogin()} 
+        />
+        <button className="btn" onClick={handleLogin}>
+          {isLoading ? "확인 중..." : "입장하기"}
+        </button>
       </div>
     </>
   );
 
+  // 로그인 완료 후 렌더링
   return (
     <>
       <style>{`
@@ -402,6 +565,7 @@ export default function LunchApp() {
           --empty-bg: #ffffff;
           --sticky-top: ${stickyTop}px;
         }
+        
         @media (prefers-color-scheme: dark) {
           :root {
             --bg-main-rgb: 18, 18, 18;
@@ -417,48 +581,64 @@ export default function LunchApp() {
           }
         }
 
-        body { font-family: 'Pretendard', sans-serif; background-color: rgb(var(--bg-main-rgb)); margin: 0; padding: 0; color: var(--text-main); overscroll-behavior-y: contain; transition: background-color 0.3s, color 0.3s; }
+        body { 
+          font-family: 'Pretendard', sans-serif; 
+          background-color: rgb(var(--bg-main-rgb)); 
+          margin: 0; padding: 0; color: var(--text-main); 
+          overscroll-behavior-y: contain; transition: background-color 0.3s, color 0.3s; 
+        }
+        
         input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         input[type="number"] { -moz-appearance: textfield; }
 
-        .ptr-container { position: fixed; top: 0; left: 0; width: 100%; height: 60px; display: flex; justify-content: center; align-items: center; z-index: 50; pointer-events: none; }
-        .ptr-icon { width: 30px; height: 30px; background: var(--card-bg); color: var(--text-main); border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; justify-content: center; align-items: center; font-size: 16px; transition: transform 0.3s; }
-        .ptr-icon.spinning { animation: spin 1s linear infinite; border: 3px solid var(--border); border-top: 3px solid #3498db; background: transparent; box-shadow: none; font-size: 0; }
+        .ptr-container { 
+          position: fixed; top: 0; left: 0; width: 100%; height: 60px; 
+          display: flex; justify-content: center; align-items: center; 
+          z-index: 50; pointer-events: none; 
+        }
+        .ptr-icon { 
+          width: 30px; height: 30px; background: var(--card-bg); color: var(--text-main); 
+          border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; 
+          justify-content: center; align-items: center; font-size: 16px; transition: transform 0.3s; 
+        }
+        .ptr-icon.spinning { 
+          animation: spin 1s linear infinite; border: 3px solid var(--border); 
+          border-top: 3px solid #3498db; background: transparent; box-shadow: none; font-size: 0; 
+        }
 
         .container { max-width: 500px; margin: 0 auto; padding: 0 20px 90px 20px; } 
         
+        /* ⭐️ 상단 헤더 글래스모피즘 */
         .sticky-top-area { 
           position: sticky; top: 0; z-index: 100; 
           padding: 20px 20px 10px 20px; margin: 0 -20px; 
-          background: transparent;
-          border-bottom: 1px solid transparent;
-          transition: all 0.3s ease;
+          background: transparent; border-bottom: 1px solid transparent; transition: all 0.3s ease; 
         }
-        .sticky-top-area.scrolled {
-          background: rgba(var(--bg-main-rgb), 0.85);
-          backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-          border-bottom: 1px solid var(--border);
-          box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+        .sticky-top-area.scrolled { 
+          background: rgba(var(--bg-main-rgb), 0.85); 
+          backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); 
+          border-bottom: 1px solid var(--border); box-shadow: 0 4px 20px rgba(0,0,0,0.05); 
         }
 
         .section-title { 
           position: sticky; top: var(--sticky-top); z-index: 80; 
           font-size: 16px; color: var(--text-main); border-bottom: 2px solid #3498db; 
           padding: 15px 20px 10px 20px; margin: 0 -20px 15px -20px; font-weight: 800; letter-spacing: -0.5px; 
-          background: rgba(var(--bg-main-rgb), 0.90); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+          background: rgba(var(--bg-main-rgb), 0.90); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); 
         }
 
-        /* ⭐️ 스마트 스크롤 (필터영역 숨김/표시) CSS */
+        /* ⭐️ 스마트 스크롤: 필터가 헤더 뒤로 숨을 수 있도록 z-index 조정 및 transform 방향 수정 */
         .filter-section { 
           position: sticky; top: var(--sticky-top); z-index: 80; 
-          padding: 10px 20px; margin: 0 -20px 15px -20px; display: flex; flex-direction: column; gap: 12px; 
-          background: rgba(var(--bg-main-rgb), 0.90); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-          transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s;
+          padding: 10px 20px; margin: 0 -20px 15px -20px; 
+          display: flex; flex-direction: column; gap: 12px; 
+          background: rgba(var(--bg-main-rgb), 0.90); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); 
+          transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
         }
-        .filter-section.hidden {
-          transform: translateY(-110%);
-          opacity: 0;
-          pointer-events: none;
+        .filter-section.hidden { 
+          /* 헤더 영역 뒤로 완벽하게 겹쳐지도록 위로 -150% 밀어버립니다 */
+          transform: translateY(-150%); 
+          pointer-events: none; 
         }
         
         .pill-scroll-container { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: none; }
@@ -467,7 +647,8 @@ export default function LunchApp() {
         .pill-btn.active { background: #3498db; color: white; border-color: #3498db; }
 
         .btn { background-color: #3498db; color: white; border: none; padding: 14px 20px; font-size: 16px; border-radius: 10px; cursor: pointer; width: 100%; font-weight: 800; transition: 0.2s; box-shadow: 0 4px 6px rgba(52,152,219,0.2); }
-        .btn:active { transform: scale(0.96); } .btn:disabled { background-color: #bdc3c7; cursor: not-allowed; box-shadow: none; }
+        .btn:active { transform: scale(0.96); } 
+        .btn:disabled { background-color: #bdc3c7; cursor: not-allowed; box-shadow: none; }
         .btn-secondary { background-color: var(--border); color: var(--text-main); margin-top: 10px; box-shadow: none; }
         
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
@@ -500,6 +681,7 @@ export default function LunchApp() {
         .tag-date { background: #f08c0020; color: #f08c00; border: 1px solid #f08c0040;}
         .tag-status { background: #3498db20; color: #3498db; border: 1px solid #3498db40; } 
         .tag-deleted { background: #e74c3c20; color: #e74c3c; width: 100%; text-align: center; margin-bottom: 12px; font-size: 13px; padding: 8px; border-radius: 8px; font-weight: 800; box-sizing: border-box; }
+        
         .menu-details { font-size: 13px; color: var(--text-sub); line-height: 1.6; margin-bottom: 15px; background: rgb(var(--bg-main-rgb)); padding: 12px; border-radius: 10px; font-weight: 600; }
         .map-link { color: #e67e22; text-decoration: none; font-weight: 800; font-size: 13px; background: #e67e2220; padding: 6px 12px; border-radius: 20px; transition: 0.2s; display: inline-block; }
         .map-link:active { transform: scale(0.95); }
@@ -522,16 +704,13 @@ export default function LunchApp() {
         .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 2000; backdrop-filter: blur(3px); animation: fadeIn 0.2s ease-out; }
         .modal-content { background: var(--modal-bg); padding: 25px; border-radius: 24px; width: 90%; max-width: 400px; max-height: 85vh; overflow-y: auto; text-align: left; box-shadow: 0 20px 40px rgba(0,0,0,0.4); animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; }
         
-        .modal-title-sticky {
-          position: sticky; top: -25px; background: var(--modal-bg); z-index: 10;
-          margin: -25px -25px 20px -25px; padding: 25px 25px 12px 25px;
-          border-bottom: 3px solid #3498db; font-size: 22px; font-weight: 900; color: var(--text-main);
-        }
-
+        .modal-title-sticky { position: sticky; top: -25px; background: var(--modal-bg); z-index: 10; margin: -25px -25px 20px -25px; padding: 25px 25px 12px 25px; border-bottom: 3px solid #3498db; font-size: 22px; font-weight: 900; color: var(--text-main); }
+        
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes popIn { 0% { transform: scale(0.9) translateY(20px); opacity: 0; } 100% { transform: scale(1) translateY(0); opacity: 1; } }
         
-        .form-group { margin-bottom: 18px; } .form-group label { display: block; margin-bottom: 8px; font-weight: 800; font-size: 13px; color: var(--text-main); }
+        .form-group { margin-bottom: 18px; } 
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 800; font-size: 13px; color: var(--text-main); }
         .form-group input, .form-group select { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 10px; box-sizing: border-box; font-size: 14px; font-weight: 500; outline: none; transition: 0.2s; background: var(--input-bg); color: var(--text-main); }
         .form-group input:focus, .form-group select:focus { border-color: #3498db; box-shadow: 0 0 0 3px rgba(52,152,219,0.1); }
         
@@ -540,11 +719,7 @@ export default function LunchApp() {
 
         .skeleton { background: var(--border); background: var(--skeleton-bg); border-radius: 5px; background-size: 200% 100%; animation: 1.5s shine linear infinite; }
         .skeleton-card { background: var(--card-bg); padding: 20px; border-radius: 16px; border: 1px solid var(--border); margin-bottom: 18px; }
-        .skeleton-tag { width: 60px; height: 24px; margin-bottom: 12px; display: inline-block; border-radius: 6px; }
-        .skeleton-title { width: 70%; height: 28px; margin-bottom: 10px; }
-        .skeleton-text { width: 40%; height: 16px; margin-bottom: 15px; }
-        @keyframes shine { to { background-position-x: -200%; } }
-
+        
         .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #3498db; color: white; padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 10000; animation: slideUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); white-space: nowrap; }
 
         .empty-state { text-align: center; padding: 50px 20px; background: var(--empty-bg); border-radius: 20px; border: 2px dashed var(--border); margin: 20px 0; animation: fadeIn 0.5s ease-out; }
@@ -577,11 +752,18 @@ export default function LunchApp() {
                 <h2>KIPFA 점심 추천</h2>
                 {isLoading && !isInitialLoading && !isRefreshing && <div className="header-loader"></div>}
               </div>
-              <div><span id="user-info">👋 {session.name}님</span><button className="logout-btn" onClick={handleLogout}>로그아웃</button></div>
+              <div>
+                <span id="user-info">👋 {session.name}님</span>
+                <button className="logout-btn" onClick={handleLogout}>로그아웃</button>
+              </div>
             </div>
             <div className="tabs">
-              <div className={`tab ${activeTab === 'pick' ? 'active' : ''}`} onClick={() => setActiveTab('pick')}>📅 이번주/다음주 Pick</div>
-              <div className={`tab ${activeTab === 'all' ? 'active' : ''}`} onClick={() => setActiveTab('all')}>📂 전체 맛집 보기</div>
+              <div className={`tab ${activeTab === 'pick' ? 'active' : ''}`} onClick={() => setActiveTab('pick')}>
+                📅 이번주/다음주 Pick
+              </div>
+              <div className={`tab ${activeTab === 'all' ? 'active' : ''}`} onClick={() => setActiveTab('all')}>
+                📂 전체 맛집 보기
+              </div>
             </div>
           </div>
 
@@ -590,10 +772,10 @@ export default function LunchApp() {
               <h3 className="section-title">데이터를 불러오는 중입니다...</h3>
               {[1, 2, 3].map(i => (
                 <div key={i} className="skeleton-card">
-                  <div className="skeleton skeleton-tag"></div>
-                  <div className="skeleton skeleton-text" style={{width:'30%', marginBottom:'5px'}}></div>
-                  <div className="skeleton skeleton-title"></div>
-                  <div className="skeleton skeleton-text" style={{height:'40px', width:'100%', borderRadius:'10px'}}></div>
+                  <div className="skeleton" style={{width:'60px', height:'24px', marginBottom:'12px', borderRadius:'6px'}}></div>
+                  <div className="skeleton" style={{width:'40%', height:'16px', marginBottom:'10px', borderRadius:'4px'}}></div>
+                  <div className="skeleton" style={{width:'70%', height:'28px', marginBottom:'15px', borderRadius:'4px'}}></div>
+                  <div className="skeleton" style={{width:'100%', height:'40px', borderRadius:'10px'}}></div>
                 </div>
               ))}
             </div>
@@ -626,20 +808,40 @@ export default function LunchApp() {
                   {/* ⭐️ 숨김/표시 처리된 스마트 스티키 필터 섹션 */}
                   <div className={`filter-section ${isScrollDown ? 'hidden' : ''}`}>
                     <div style={{ display: 'flex', gap: '10px' }}>
-                      <input type="text" className="search-input" placeholder="🔍 맛집 검색..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{flex: 1}} />
-                      <select className="category-select" style={{width: '120px'}} value={sortOption} onChange={e => setSortOption(e.target.value as any)}>
+                      <input 
+                        type="text" 
+                        className="search-input" 
+                        placeholder="🔍 맛집 검색..." 
+                        value={searchQuery} 
+                        onChange={e => setSearchQuery(e.target.value)} 
+                        style={{flex: 1}} 
+                      />
+                      <select 
+                        className="category-select" 
+                        style={{width: '120px'}} 
+                        value={sortOption} 
+                        onChange={e => setSortOption(e.target.value as any)}
+                      >
                         <option value="latest">⏱️ 최신순</option>
                         <option value="likes">❤️ 인기순</option>
                       </select>
                     </div>
                     <div className="pill-scroll-container">
-                      <button className={`pill-btn ${categoryFilter === 'all' ? 'active' : ''}`} onClick={() => setCategoryFilter('all')}>🏷️ 전체</button>
-                      <button className={`pill-btn ${categoryFilter === '한식' ? 'active' : ''}`} onClick={() => setCategoryFilter('한식')}>🍚 한식</button>
-                      <button className={`pill-btn ${categoryFilter === '중식' ? 'active' : ''}`} onClick={() => setCategoryFilter('중식')}>🥢 중식</button>
-                      <button className={`pill-btn ${categoryFilter === '일식' ? 'active' : ''}`} onClick={() => setCategoryFilter('일식')}>🍣 일식</button>
-                      <button className={`pill-btn ${categoryFilter === '양식' ? 'active' : ''}`} onClick={() => setCategoryFilter('양식')}>🍝 양식</button>
-                      <button className={`pill-btn ${categoryFilter === '분식' ? 'active' : ''}`} onClick={() => setCategoryFilter('분식')}>🥘 분식</button>
-                      <button className={`pill-btn ${categoryFilter === '기타' ? 'active' : ''}`} onClick={() => setCategoryFilter('기타')}>🍽️ 기타</button>
+                      <button 
+                        className={`pill-btn ${categoryFilter === 'all' ? 'active' : ''}`} 
+                        onClick={() => setCategoryFilter('all')}
+                      >
+                        🏷️ 전체
+                      </button>
+                      {Object.keys(CATEGORY_EMOJI).map(c => (
+                        <button 
+                          key={c} 
+                          className={`pill-btn ${categoryFilter === c ? 'active' : ''}`} 
+                          onClick={() => setCategoryFilter(c)}
+                        >
+                          {CATEGORY_EMOJI[c]}
+                        </button>
+                      ))}
                     </div>
                   </div>
                   
@@ -672,14 +874,27 @@ export default function LunchApp() {
             </div>
             {rouletteResult && (
               <div style={{background: 'rgb(var(--bg-main-rgb))', padding: '30px 20px', borderRadius: '20px', border: '2px solid var(--border)', marginBottom: '20px'}}>
-                <div style={{fontSize: '32px', marginBottom: '10px'}}>{CATEGORY_EMOJI[rouletteResult['카테고리']]?.split(' ')[0] || '🍽️'}</div>
-                <div style={{fontSize: '14px', color: 'var(--text-sub)', fontWeight: '800', marginBottom: '5px'}}>{rouletteResult['가게명']}</div>
-                <div style={{fontSize: '22px', fontWeight: '900', color: '#3498db', wordBreak: 'keep-all'}}>{rouletteResult['대표메뉴']}</div>
+                <div style={{fontSize: '32px', marginBottom: '10px'}}>
+                  {CATEGORY_EMOJI[rouletteResult['카테고리']]?.split(' ')[0] || '🍽️'}
+                </div>
+                <div style={{fontSize: '14px', color: 'var(--text-sub)', fontWeight: '800', marginBottom: '5px'}}>
+                  {rouletteResult['가게명']}
+                </div>
+                <div style={{fontSize: '22px', fontWeight: '900', color: '#3498db', wordBreak: 'keep-all'}}>
+                  {rouletteResult['대표메뉴']}
+                </div>
               </div>
             )}
-            <button className="btn" onClick={spinRoulette} disabled={isSpinning}>{isSpinning ? '고르는 중...' : '다시 돌리기 🔄'}</button>
+            <button className="btn" onClick={spinRoulette} disabled={isSpinning}>
+              {isSpinning ? '고르는 중...' : '다시 돌리기 🔄'}
+            </button>
             {!isSpinning && rouletteResult && (
-              <button className="btn-outline" onClick={() => copyToClipboard(`[오늘의 점심 룰렛 결과!]\n🏠 ${rouletteResult['가게명']}\n🍽️ 메뉴: ${rouletteResult['대표메뉴']}\n📍 ${rouletteResult['가게URL']}`)}>📤 결과 공유하기</button>
+              <button 
+                className="btn-outline" 
+                onClick={() => copyToClipboard(`[오늘의 점심 룰렛 결과!]\n🏠 ${rouletteResult['가게명']}\n🍽️ 메뉴: ${rouletteResult['대표메뉴']}\n📍 ${rouletteResult['가게URL']}`)}
+              >
+                📤 결과 공유하기
+              </button>
             )}
           </div>
         </div>
@@ -701,28 +916,60 @@ export default function LunchApp() {
                 {dateOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
-            <div className="form-group"><label>가게명</label><input type="text" placeholder="가게명 입력" value={formData.shopName} onChange={e => setFormData({...formData, shopName: e.target.value})} onBlur={e => checkDuplicate('name', e.target.value)} /></div>
-            <div className="form-group"><label>지도 URL</label><input type="text" placeholder="네이버지도 또는 카카오맵 URL" value={formData.shopUrl} onChange={e => setFormData({...formData, shopUrl: e.target.value})} onBlur={e => checkDuplicate('url', e.target.value)} /></div>
-            <div className="form-group"><label>카테고리</label>
+
+            <div className="form-group">
+              <label>지도 URL</label>
+              <input 
+                type="text" 
+                placeholder="네이버지도 또는 카카오맵 URL" 
+                value={formData.shopUrl} 
+                onChange={e => setFormData({...formData, shopUrl: e.target.value})} 
+                onBlur={e => handleUrlBlur(e.target.value)} 
+              />
+            </div>
+            <div className="form-group">
+              <label>가게명</label>
+              <input 
+                type="text" 
+                placeholder="URL을 넣으면 자동 입력됩니다" 
+                value={formData.shopName} 
+                onChange={e => setFormData({...formData, shopName: e.target.value})} 
+                onBlur={e => checkDuplicate('name', e.target.value)} 
+              />
+            </div>
+            <div className="form-group">
+              <label>카테고리</label>
               <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
-                <option value="한식">🍚 한식</option><option value="중식">🥢 중식</option><option value="일식">🍣 일식</option><option value="양식">🍝 양식</option><option value="분식">🥘 분식</option><option value="기타">🍽️ 기타</option>
+                {Object.keys(CATEGORY_EMOJI).map(c => (
+                  <option key={c} value={c}>{CATEGORY_EMOJI[c]}</option>
+                ))}
               </select>
             </div>
-            <div className="form-group"><label>대표 메뉴</label>
+            <div className="form-group">
+              <label>대표 메뉴</label>
               <input type="text" placeholder="메뉴 1 (필수)" style={{marginBottom:'8px'}} value={formData.menu1} onChange={e => setFormData({...formData, menu1: e.target.value})} />
               <input type="text" placeholder="메뉴 2 (선택)" style={{marginBottom:'8px'}} value={formData.menu2} onChange={e => setFormData({...formData, menu2: e.target.value})} />
               <input type="text" placeholder="메뉴 3 (선택)" value={formData.menu3} onChange={e => setFormData({...formData, menu3: e.target.value})} />
             </div>
-            <div className="form-group"><label>가격대</label>
+            <div className="form-group">
+              <label>가격대</label>
               <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
-                <select value={formData.priceMin} onChange={e => setFormData({...formData, priceMin: e.target.value})}>{priceOptions.map(p => <option key={p} value={p}>{p}</option>)}</select>
+                <select value={formData.priceMin} onChange={e => setFormData({...formData, priceMin: e.target.value})}>
+                  {priceOptions.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
                 <span style={{fontSize:'13px', fontWeight:'800', color:'var(--text-sub)'}}>부터</span>
-                <select value={formData.priceMax} onChange={e => setFormData({...formData, priceMax: e.target.value})}>{priceOptions.map(p => <option key={p} value={p}>{p}</option>)}</select>
+                <select value={formData.priceMax} onChange={e => setFormData({...formData, priceMax: e.target.value})}>
+                  {priceOptions.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
                 <span style={{fontSize:'13px', fontWeight:'800', color:'var(--text-sub)'}}>까지</span>
               </div>
             </div>
-            <button className="btn" onClick={handleModalSubmit} style={{marginTop:'20px'}}>{modalMode === 'edit' ? '수정 완료' : '추천 완료'}</button>
-            <button className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>닫기</button>
+            <button className="btn" onClick={handleModalSubmit} style={{marginTop:'20px'}}>
+              {modalMode === 'edit' ? '수정 완료' : '추천 완료'}
+            </button>
+            <button className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>
+              닫기
+            </button>
           </div>
         </div>
       )}
@@ -733,14 +980,23 @@ export default function LunchApp() {
             <div className="modal-title-sticky" style={{color: '#e74c3c', borderColor: '#e74c3c'}}>
               🚨 맛집 삭제 요청
             </div>
-            <p style={{fontSize:'13px', color:'var(--text-sub)', marginBottom:'20px', fontWeight:'600'}}>삭제 사유를 선택해 주세요.</p>
-            <div className="form-group"><label>삭제 사유</label>
+            <p style={{fontSize:'13px', color:'var(--text-sub)', marginBottom:'20px', fontWeight:'600'}}>
+              삭제 사유를 선택해 주세요.
+            </p>
+            <div className="form-group">
+              <label>삭제 사유</label>
               <select value={deleteReason} onChange={e => setDeleteReason(e.target.value)}>
-                <option value="폐업/이전">폐업/이전</option><option value="가격상승">가격상승</option><option value="재방문의사없음">재방문의사없음</option>
+                <option value="폐업/이전">폐업/이전</option>
+                <option value="가격상승">가격상승</option>
+                <option value="재방문의사없음">재방문의사없음</option>
               </select>
             </div>
-            <button className="btn" style={{background:'#e74c3c', color:'white'}} onClick={submitDeleteRequest}>요청하기</button>
-            <button className="btn btn-secondary" onClick={() => setIsDeleteModalOpen(false)}>취소</button>
+            <button className="btn" style={{background:'#e74c3c', color:'white'}} onClick={submitDeleteRequest}>
+              요청하기
+            </button>
+            <button className="btn btn-secondary" onClick={() => setIsDeleteModalOpen(false)}>
+              취소
+            </button>
           </div>
         </div>
       )}
@@ -769,34 +1025,56 @@ export default function LunchApp() {
           </div>
         )}
         {isDeleteRequested && <div className="tag-deleted">🚨 삭제 요청 검토 중: {m['삭제요청사유'] || '사유 미상'}</div>}
+        
         <div className="tag-container">
           <span className="tag">{CATEGORY_EMOJI[m['카테고리']] || m['카테고리']}</span>
           <span className="tag tag-date">📅 {dateStr}</span>
           {type === 'all' && isPicked && <span className="tag tag-status">🎯 Pick 완료</span>}
         </div>
-        <div style={{fontWeight:'800', color:'var(--text-sub)', marginBottom:'5px', fontSize:'12px'}}>🏠 {m['가게명']}</div>
+        
+        <div style={{fontWeight:'800', color:'var(--text-sub)', marginBottom:'5px', fontSize:'12px'}}>
+          🏠 {m['가게명']}
+        </div>
         <h3>{m['대표메뉴']}</h3>
         <div className="menu-details">📍 {m['가격대']}</div>
+        
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-          <a href={m['가게URL']} target="_blank" className="map-link">🗺️ 지도/가게정보 보기</a>
+          <a href={m['가게URL']} target="_blank" className="map-link">🗺️ 지도/정보 보기</a>
+          
           {type === 'pick' ? (
             <div className="reaction-group">
-              <button className={`like-btn ${likes.includes(session?.pin as string) ? 'liked' : ''}`} onClick={() => toggleReaction(m.ID, 'toggle_like')} disabled={isLiking || isDisliking}>
+              <button 
+                className={`like-btn ${likes.includes(session?.pin as string) ? 'liked' : ''}`} 
+                onClick={() => toggleReaction(m.ID, 'toggle_like')} 
+                disabled={isLiking || isDisliking}
+              >
                 {isLiking ? '⏳' : (likes.includes(session?.pin as string) ? '❤️' : '🤍')} {likes.length}
               </button>
-              <button className={`dislike-btn ${dislikes.includes(session?.pin as string) ? 'liked' : ''}`} onClick={() => toggleReaction(m.ID, 'toggle_dislike')} disabled={isLiking || isDisliking}>
+              <button 
+                className={`dislike-btn ${dislikes.includes(session?.pin as string) ? 'liked' : ''}`} 
+                onClick={() => toggleReaction(m.ID, 'toggle_dislike')} 
+                disabled={isLiking || isDisliking}
+              >
                 {isDisliking ? '⏳' : (dislikes.includes(session?.pin as string) ? '💔' : '👎')} {dislikes.length}
               </button>
             </div>
           ) : (
-            <span style={{fontSize:'12px', color:'#e74c3c', fontWeight:'800', background:'#e74c3c20', padding:'6px 12px', borderRadius:'12px'}}>❤️ 누적 좋아요 {likes.length}개</span>
+            <span style={{fontSize:'12px', color:'#e74c3c', fontWeight:'800', background:'#e74c3c20', padding:'6px 12px', borderRadius:'12px'}}>
+              ❤️ 좋아요 {likes.length}개
+            </span>
           )}
         </div>
         
         {type === 'all' && (
-          <div style={{display: 'flex', gap: '10px'}}>
+          <div style={{display: 'flex', gap: '10px', marginTop: '15px'}}>
             <button className="btn-outline" style={{flex: 2}} onClick={() => openEditModal(m, true)}>🔄 다시 Pick 하기</button>
-            <button className="btn-outline" style={{flex: 1, borderColor: 'var(--border)', color: 'var(--text-sub)'}} onClick={() => copyToClipboard(`[점심 맛집 추천] ${m['가게명']}\n🍽️ 메뉴: ${m['대표메뉴']}\n📍 ${m['가게URL']}`)}>📤 공유</button>
+            <button 
+              className="btn-outline" 
+              style={{flex: 1, borderColor: 'var(--border)', color: 'var(--text-sub)'}} 
+              onClick={() => copyToClipboard(`[점심 맛집 추천] ${m['가게명']}\n🍽️ 메뉴: ${m['대표메뉴']}\n📍 ${m['가게URL']}`)}
+            >
+              📤 공유
+            </button>
           </div>
         )}
       </div>
