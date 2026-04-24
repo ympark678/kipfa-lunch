@@ -28,8 +28,7 @@ export default function LunchApp() {
   const [sortOption, setSortOption] = useState<"latest" | "likes">("latest");
   
   const headerRef = useRef<HTMLDivElement>(null);
-  
-  // ⭐️ 스크롤 감지 상태 (글래스모피즘 용도)
+  const [stickyTop, setStickyTop] = useState(135);
   const [isScrolled, setIsScrolled] = useState(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -81,6 +80,12 @@ export default function LunchApp() {
   };
 
   useEffect(() => {
+    const updateStickyGap = () => { if (headerRef.current) setStickyTop(Math.floor(headerRef.current.getBoundingClientRect().height) - 1); };
+    if (session) { updateStickyGap(); window.addEventListener("resize", updateStickyGap); }
+    return () => window.removeEventListener("resize", updateStickyGap);
+  }, [session, activeTab]);
+
+  useEffect(() => {
     const savedPin = localStorage.getItem("lunchUserPin");
     const savedName = localStorage.getItem("lunchUserName");
     if (savedPin && savedName) { 
@@ -101,7 +106,6 @@ export default function LunchApp() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [activeTab]);
 
-  // ⭐️ 스크롤 감지 리스너 (헤더 유리 효과 적용)
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 10);
@@ -129,17 +133,21 @@ export default function LunchApp() {
 
   const handleLogin = async () => {
     if (pin.length !== 4) return showToast("⚠️ 4자리 번호를 입력해주세요.");
+    
     setIsLoading(true);
     try {
       const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "verify_pin", pin: pin }) });
       const result = await res.json();
+      
       if (result.success) {
         localStorage.setItem("lunchUserPin", pin);
         localStorage.setItem("lunchUserName", result.userName);
         setSession({ pin: pin, name: result.userName });
         showToast(`환영합니다, ${result.userName}님! 👋`);
         fetchMenus();
-      } else { showToast("❌ 등록되지 않은 번호입니다."); }
+      } else {
+        showToast("❌ 등록되지 않은 번호입니다.");
+      }
     } catch (e) { showToast("🚨 서버 연결 실패"); } finally { setIsLoading(false); }
   };
 
@@ -352,7 +360,6 @@ export default function LunchApp() {
       <style>{`
         @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
         
-        /* ⭐️ CSS 변수 설정 */
         :root {
           --bg-main-rgb: 247, 249, 250;
           --text-main: #2c3e50;
@@ -364,6 +371,7 @@ export default function LunchApp() {
           --modal-bg: #ffffff;
           --btn-secondary: #ffffff;
           --empty-bg: #ffffff;
+          --sticky-top: ${stickyTop}px;
         }
         @media (prefers-color-scheme: dark) {
           :root {
@@ -384,14 +392,12 @@ export default function LunchApp() {
         input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         input[type="number"] { -moz-appearance: textfield; }
 
-        .ptr-container { position: fixed; top: 0; left: 0; width: 100%; height: 60px; display: flex; justify-content: center; align-items: center; z-index: 50; transition: transform 0.2s; pointer-events: none; }
+        .ptr-container { position: fixed; top: 0; left: 0; width: 100%; height: 60px; display: flex; justify-content: center; align-items: center; z-index: 50; pointer-events: none; }
         .ptr-icon { width: 30px; height: 30px; background: var(--card-bg); color: var(--text-main); border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; justify-content: center; align-items: center; font-size: 16px; transition: transform 0.3s; }
         .ptr-icon.spinning { animation: spin 1s linear infinite; border: 3px solid var(--border); border-top: 3px solid #3498db; background: transparent; box-shadow: none; font-size: 0; }
 
-        .container-wrapper { transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .container { max-width: 500px; margin: 0 auto; padding: 0 20px 90px 20px; } 
         
-        /* ⭐️ 글래스모피즘 스티키 헤더 (스크롤 반응형) */
         .sticky-top-area { 
           position: sticky; top: 0; z-index: 100; 
           padding: 20px 20px 10px 20px; margin: 0 -20px; 
@@ -401,17 +407,24 @@ export default function LunchApp() {
         }
         .sticky-top-area.scrolled {
           background: rgba(var(--bg-main-rgb), 0.85);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
+          backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
           border-bottom: 1px solid var(--border);
           box-shadow: 0 4px 20px rgba(0,0,0,0.05);
         }
 
-        /* 기존 스티키 해제 (자연스럽게 뒤로 비치게) */
-        .section-title { font-size: 16px; color: var(--text-main); border-bottom: 2px solid #3498db; padding: 15px 0 10px 0; margin: 0 0 15px 0; font-weight: 800; letter-spacing: -0.5px; }
-        .filter-section { padding: 10px 0; margin-bottom: 15px; display: flex; flex-direction: column; gap: 12px; }
+        /* ⭐️ 제목 및 필터에 글래스모피즘 효과 추가하여 스크롤 시 투명하게 비치도록 */
+        .section-title { 
+          position: sticky; top: var(--sticky-top); z-index: 90; 
+          font-size: 16px; color: var(--text-main); border-bottom: 2px solid #3498db; 
+          padding: 15px 20px 10px 20px; margin: 0 -20px 15px -20px; font-weight: 800; letter-spacing: -0.5px; 
+          background: rgba(var(--bg-main-rgb), 0.90); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        }
+        .filter-section { 
+          position: sticky; top: var(--sticky-top); z-index: 90; 
+          padding: 10px 20px; margin: 0 -20px 15px -20px; display: flex; flex-direction: column; gap: 12px; 
+          background: rgba(var(--bg-main-rgb), 0.90); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        }
         
-        /* ⭐️ 배달앱 스타일 '알약(Pill)' 카테고리 가로 스크롤 */
         .pill-scroll-container { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: none; }
         .pill-scroll-container::-webkit-scrollbar { display: none; }
         .pill-btn { padding: 8px 16px; border-radius: 30px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-sub); font-weight: 700; font-size: 14px; white-space: nowrap; cursor: pointer; transition: 0.2s; }
@@ -471,7 +484,15 @@ export default function LunchApp() {
         .fab-secondary { background: var(--btn-secondary); color: var(--text-main); font-size: 26px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
 
         .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 2000; backdrop-filter: blur(3px); animation: fadeIn 0.2s ease-out; }
-        .modal-content { background: var(--modal-bg); padding: 25px; border-radius: 24px; width: 90%; max-width: 400px; max-height: 85vh; overflow-y: auto; text-align: left; box-shadow: 0 20px 40px rgba(0,0,0,0.4); animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .modal-content { background: var(--modal-bg); padding: 25px; border-radius: 24px; width: 90%; max-width: 400px; max-height: 85vh; overflow-y: auto; text-align: left; box-shadow: 0 20px 40px rgba(0,0,0,0.4); animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; }
+        
+        /* ⭐️ 모달창 상단 제목 고정 (Sticky) */
+        .modal-title-sticky {
+          position: sticky; top: -25px; background: var(--modal-bg); z-index: 10;
+          margin: -25px -25px 20px -25px; padding: 25px 25px 12px 25px;
+          border-bottom: 3px solid #3498db; font-size: 22px; font-weight: 900; color: var(--text-main);
+        }
+
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes popIn { 0% { transform: scale(0.9) translateY(20px); opacity: 0; } 100% { transform: scale(1) translateY(0); opacity: 1; } }
         
@@ -506,16 +527,16 @@ export default function LunchApp() {
         </div>
       </div>
 
+      {/* ⭐️ transform 속성을 당길 때만 부여하여 평소 플로팅(Sticky) 깨짐 방지 */}
       <div 
         className="container-wrapper" 
-        style={{ transform: `translateY(${pullDistance * 0.5}px)` }}
+        style={pullDistance > 0 ? { transform: `translateY(${pullDistance * 0.5}px)` } : undefined}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
         <div className="container">
           
-          {/* ⭐️ 글래스모피즘 스티키 헤더 영역 */}
           <div ref={headerRef} className={`sticky-top-area ${isScrolled ? 'scrolled' : ''}`}>
             <div className="header">
               <div style={{display:'flex', alignItems:'center'}}>
@@ -576,7 +597,6 @@ export default function LunchApp() {
                         <option value="likes">❤️ 인기순</option>
                       </select>
                     </div>
-                    {/* ⭐️ 배달앱 스타일 가로 스크롤 (Pill) 카테고리 */}
                     <div className="pill-scroll-container">
                       <button className={`pill-btn ${categoryFilter === 'all' ? 'active' : ''}`} onClick={() => setCategoryFilter('all')}>🏷️ 전체</button>
                       <button className={`pill-btn ${categoryFilter === '한식' ? 'active' : ''}`} onClick={() => setCategoryFilter('한식')}>🍚 한식</button>
@@ -612,7 +632,10 @@ export default function LunchApp() {
       {isRouletteOpen && (
         <div className="modal" onClick={() => !isSpinning && setIsRouletteOpen(false)}>
           <div className="modal-content" style={{textAlign: 'center', padding: '40px 20px'}} onClick={e => e.stopPropagation()}>
-            <h3 style={{fontSize: '24px', fontWeight: '900', color: 'var(--text-main)', marginBottom: '20px'}}>🎲 오늘의 회식 Pick은?</h3>
+            {/* ⭐️ 모달창 고정 헤더 적용 */}
+            <div className="modal-title-sticky" style={{textAlign: 'left', marginBottom: '20px'}}>
+              🎲 오늘의 회식 Pick은?
+            </div>
             {rouletteResult && (
               <div style={{background: 'rgb(var(--bg-main-rgb))', padding: '30px 20px', borderRadius: '20px', border: '2px solid var(--border)', marginBottom: '20px'}}>
                 <div style={{fontSize: '32px', marginBottom: '10px'}}>{CATEGORY_EMOJI[rouletteResult['카테고리']]?.split(' ')[0] || '🍽️'}</div>
@@ -631,9 +654,11 @@ export default function LunchApp() {
       {isModalOpen && (
         <div className="modal" onClick={() => setIsModalOpen(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <h3 style={{marginTop:0, marginBottom:'20px', fontSize:'22px', fontWeight:'900', color:'var(--text-main)', borderBottom:'3px solid #3498db', paddingBottom:'12px', display:'inline-block'}}>
+            {/* ⭐️ 모달창 고정 헤더 적용 */}
+            <div className="modal-title-sticky">
               {modalMode === 'add' ? '✨ 새로운 메뉴 추천' : modalMode === 'edit' ? '✏️ 추천 정보 수정' : '🔄 다시 Pick 하기'}
-            </h3>
+            </div>
+            
             <div className="form-group" style={modalMode === 'repick' ? { background: '#3498db10', padding: '15px', borderRadius: '12px', border: '1px solid #3498db30' } : {}}>
               <label style={modalMode === 'repick' ? { color: '#3498db', display: 'flex', alignItems: 'center', justifyContent: 'space-between' } : {}}>
                 추천 방문일 (수/금)
@@ -672,7 +697,9 @@ export default function LunchApp() {
       {isDeleteModalOpen && (
         <div className="modal" onClick={() => setIsDeleteModalOpen(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <h3 style={{marginTop:0, marginBottom:'15px', color:'#e74c3c', fontSize:'22px', fontWeight:'900'}}>🚨 맛집 삭제 요청</h3>
+            <div className="modal-title-sticky" style={{color: '#e74c3c', borderColor: '#e74c3c'}}>
+              🚨 맛집 삭제 요청
+            </div>
             <p style={{fontSize:'13px', color:'var(--text-sub)', marginBottom:'20px', fontWeight:'600'}}>삭제 사유를 선택해 주세요.</p>
             <div className="form-group"><label>삭제 사유</label>
               <select value={deleteReason} onChange={e => setDeleteReason(e.target.value)}>
