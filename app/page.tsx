@@ -30,6 +30,10 @@ export default function LunchApp() {
   const headerRef = useRef<HTMLDivElement>(null);
   const [stickyTop, setStickyTop] = useState(135);
   const [isScrolled, setIsScrolled] = useState(false);
+  
+  // ⭐️ 스마트 스크롤(스크롤 방향 감지)을 위한 상태
+  const [isScrollDown, setIsScrollDown] = useState(false);
+  const lastScrollY = useRef(0);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"add" | "edit" | "repick">("add");
@@ -80,6 +84,16 @@ export default function LunchApp() {
   };
 
   useEffect(() => {
+    const hideA2HS = localStorage.getItem('hideA2HS');
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+    if (!isStandalone && hideA2HS !== 'true') {
+      if (/iphone|ipad|ipod|android/.test(window.navigator.userAgent.toLowerCase())) {
+        setTimeout(() => setShowA2HS(true), 2000);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
     const updateStickyGap = () => { if (headerRef.current) setStickyTop(Math.floor(headerRef.current.getBoundingClientRect().height) - 1); };
     if (session) { updateStickyGap(); window.addEventListener("resize", updateStickyGap); }
     return () => window.removeEventListener("resize", updateStickyGap);
@@ -106,9 +120,20 @@ export default function LunchApp() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [activeTab]);
 
+  // ⭐️ 스크롤 감지 로직 고도화 (방향 감지 추가)
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 10);
+      const currentScrollY = window.scrollY;
+      setIsScrolled(currentScrollY > 10);
+
+      if (currentScrollY <= 10) {
+        setIsScrollDown(false); // 맨 위면 무조건 보임
+      } else if (currentScrollY > lastScrollY.current + 10) {
+        setIsScrollDown(true); // 아래로 내릴 때 숨김
+      } else if (currentScrollY < lastScrollY.current - 10) {
+        setIsScrollDown(false); // 위로 올릴 때 다시 보임
+      }
+      lastScrollY.current = currentScrollY;
     };
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
@@ -255,8 +280,12 @@ export default function LunchApp() {
       const result = await res.json();
       if (result.success) {
         fetchMenus(true);
-        if (isCancel) showToast("🗑️ 취소되었습니다.");
-        else showToast(action === 'toggle_like' ? "❤️ 좋아요를 눌렀습니다!" : "💔 싫어요를 눌렀습니다.");
+        // ⭐️ 취소 시 명확한 텍스트로 변경
+        if (isCancel) {
+          showToast(action === 'toggle_like' ? "🤍 좋아요가 취소되었습니다." : "👎 싫어요가 취소되었습니다.");
+        } else {
+          showToast(action === 'toggle_like' ? "❤️ 좋아요를 눌렀습니다!" : "💔 싫어요를 눌렀습니다.");
+        }
       }
     } catch (e) { showToast("🚨 오류 발생"); } finally { setReactionLoading(null); }
   };
@@ -412,17 +441,24 @@ export default function LunchApp() {
           box-shadow: 0 4px 20px rgba(0,0,0,0.05);
         }
 
-        /* ⭐️ 제목 및 필터에 글래스모피즘 효과 추가하여 스크롤 시 투명하게 비치도록 */
         .section-title { 
-          position: sticky; top: var(--sticky-top); z-index: 90; 
+          position: sticky; top: var(--sticky-top); z-index: 80; 
           font-size: 16px; color: var(--text-main); border-bottom: 2px solid #3498db; 
           padding: 15px 20px 10px 20px; margin: 0 -20px 15px -20px; font-weight: 800; letter-spacing: -0.5px; 
           background: rgba(var(--bg-main-rgb), 0.90); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
         }
+
+        /* ⭐️ 스마트 스크롤 (필터영역 숨김/표시) CSS */
         .filter-section { 
-          position: sticky; top: var(--sticky-top); z-index: 90; 
+          position: sticky; top: var(--sticky-top); z-index: 80; 
           padding: 10px 20px; margin: 0 -20px 15px -20px; display: flex; flex-direction: column; gap: 12px; 
           background: rgba(var(--bg-main-rgb), 0.90); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+          transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s;
+        }
+        .filter-section.hidden {
+          transform: translateY(-110%);
+          opacity: 0;
+          pointer-events: none;
         }
         
         .pill-scroll-container { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: none; }
@@ -486,7 +522,6 @@ export default function LunchApp() {
         .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 2000; backdrop-filter: blur(3px); animation: fadeIn 0.2s ease-out; }
         .modal-content { background: var(--modal-bg); padding: 25px; border-radius: 24px; width: 90%; max-width: 400px; max-height: 85vh; overflow-y: auto; text-align: left; box-shadow: 0 20px 40px rgba(0,0,0,0.4); animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; }
         
-        /* ⭐️ 모달창 상단 제목 고정 (Sticky) */
         .modal-title-sticky {
           position: sticky; top: -25px; background: var(--modal-bg); z-index: 10;
           margin: -25px -25px 20px -25px; padding: 25px 25px 12px 25px;
@@ -527,7 +562,6 @@ export default function LunchApp() {
         </div>
       </div>
 
-      {/* ⭐️ transform 속성을 당길 때만 부여하여 평소 플로팅(Sticky) 깨짐 방지 */}
       <div 
         className="container-wrapper" 
         style={pullDistance > 0 ? { transform: `translateY(${pullDistance * 0.5}px)` } : undefined}
@@ -589,7 +623,8 @@ export default function LunchApp() {
 
               {activeTab === 'all' && (
                 <div>
-                  <div className="filter-section">
+                  {/* ⭐️ 숨김/표시 처리된 스마트 스티키 필터 섹션 */}
+                  <div className={`filter-section ${isScrollDown ? 'hidden' : ''}`}>
                     <div style={{ display: 'flex', gap: '10px' }}>
                       <input type="text" className="search-input" placeholder="🔍 맛집 검색..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{flex: 1}} />
                       <select className="category-select" style={{width: '120px'}} value={sortOption} onChange={e => setSortOption(e.target.value as any)}>
@@ -632,7 +667,6 @@ export default function LunchApp() {
       {isRouletteOpen && (
         <div className="modal" onClick={() => !isSpinning && setIsRouletteOpen(false)}>
           <div className="modal-content" style={{textAlign: 'center', padding: '40px 20px'}} onClick={e => e.stopPropagation()}>
-            {/* ⭐️ 모달창 고정 헤더 적용 */}
             <div className="modal-title-sticky" style={{textAlign: 'left', marginBottom: '20px'}}>
               🎲 오늘의 회식 Pick은?
             </div>
@@ -654,7 +688,6 @@ export default function LunchApp() {
       {isModalOpen && (
         <div className="modal" onClick={() => setIsModalOpen(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
-            {/* ⭐️ 모달창 고정 헤더 적용 */}
             <div className="modal-title-sticky">
               {modalMode === 'add' ? '✨ 새로운 메뉴 추천' : modalMode === 'edit' ? '✏️ 추천 정보 수정' : '🔄 다시 Pick 하기'}
             </div>
