@@ -31,8 +31,6 @@ export default function LunchApp() {
   const headerRef = useRef<HTMLDivElement>(null);
   const [stickyTop, setStickyTop] = useState(135);
   const [isScrolled, setIsScrolled] = useState(false);
-  
-  // ⭐️ 스마트 스티키(스크롤 방향 감지) 전용 상태
   const [isScrollDown, setIsScrollDown] = useState(false);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -102,7 +100,6 @@ export default function LunchApp() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // 로그인 상태 확인
   useEffect(() => {
     const savedPin = localStorage.getItem("lunchUserPin");
     const savedName = localStorage.getItem("lunchUserName");
@@ -114,46 +111,33 @@ export default function LunchApp() {
     }
   }, []);
 
-  // 기본 날짜 세팅
   useEffect(() => {
     if (dateOptions.length > 0 && !formData.visitDate) {
       setFormData(prev => ({ ...prev, visitDate: dateOptions[0].value }));
     }
   }, [dateOptions]);
 
-  // 탭 변경 시 스크롤 최상단으로
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    setIsScrollDown(false); // 탭 바꿀 때 숨겨진 필터 다시 보이기
+    setIsScrollDown(false); 
   }, [activeTab]);
 
-  // ⭐️ 스마트 스티키: 스크롤 방향 감지 로직 (부드럽게 개선)
   useEffect(() => {
     let lastY = window.scrollY;
-    
     const handleScroll = () => {
       const currentY = window.scrollY;
-      
-      // 헤더 유리 효과 (10px 이상 내리면 켜짐)
       setIsScrolled(currentY > 10);
-
-      // 필터 숨김 효과 (50px 이상 내려갔을 때부터 작동)
       if (currentY > 50 && currentY > lastY + 15) {
-        // 아래로 스크롤 할 때 숨김
         setIsScrollDown(true);
       } else if (currentY < lastY - 15 || currentY <= 50) {
-        // 위로 15px 이상 튕겨 올리거나 맨 위로 갔을 때 다시 보임
         setIsScrollDown(false);
       }
-      
       lastY = currentY;
     };
-
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // 헤더 높이 계산하여 Sticky Top 위치 동적 지정
   useEffect(() => {
     const updateStickyGap = () => { 
       if (headerRef.current) {
@@ -185,24 +169,51 @@ export default function LunchApp() {
     }
   };
 
-  // URL 자동 파싱 로직
-  const handleUrlBlur = async (url: string) => {
-    if (!url || (!url.includes("naver") && !url.includes("kakao"))) return;
-    
-    showToast("🔍 가게 정보 분석 중...");
-    try {
-      const res = await fetch(SCRIPT_URL, { 
-        method: "POST", 
-        body: JSON.stringify({ action: "parse_url", url }) 
-      });
-      const result = await res.json();
-      if (result.success && result.shopName) {
-        setFormData(prev => ({ ...prev, shopName: result.shopName }));
-        showToast(`✨ '${result.shopName}' 정보를 가져왔습니다.`);
-        checkDuplicate('name', result.shopName);
+  // ⭐️ [고도화] 스마트 URL 파서 로직
+  const handleUrlBlur = async (inputText: string) => {
+    if (!inputText) return;
+
+    // 1. 텍스트 뭉텅이에서 실제 링크(https://...)만 정규식으로 잘라냅니다.
+    const urlMatch = inputText.match(/(https?:\/\/[^\s]+)/);
+    const cleanUrl = urlMatch ? urlMatch[0] : inputText;
+
+    // 2. URL 칸에는 군더더기 없이 '순수 링크'만 남겨줍니다.
+    if (urlMatch && cleanUrl !== inputText) {
+      setFormData(prev => ({ ...prev, shopUrl: cleanUrl }));
+    }
+
+    // 3. 복사한 텍스트에 [네이버지도]나 [카카오맵] 텍스트가 있다면?
+    if (inputText.includes("[네이버") || inputText.includes("[카카오맵]")) {
+      // 엔터(\n) 기준으로 줄을 나눕니다.
+      const lines = inputText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+      
+      // 모바일 앱 공유 포맷: 첫 줄은 [네이버지도], 두 번째 줄이 '가게 이름'입니다!
+      if (lines.length >= 2) {
+        const extractedName = lines[1];
+        setFormData(prev => ({ ...prev, shopName: extractedName }));
+        showToast(`✨ 가게 이름 자동 입력 완료!`);
+        checkDuplicate('name', extractedName);
+        return; // 💡 여기서 함수 종료! (서버 다녀올 필요 없이 0.1초 컷)
       }
-    } catch (e) { 
-      console.error(e); 
+    }
+
+    // 4. 만약 텍스트 없이 "쌩 URL"만 붙여넣었을 경우에는 기존처럼 서버를 통해 크롤링합니다.
+    if (cleanUrl.includes("naver") || cleanUrl.includes("kakao")) {
+      showToast("🔍 가게 정보 분석 중...");
+      try {
+        const res = await fetch(SCRIPT_URL, { 
+          method: "POST", 
+          body: JSON.stringify({ action: "parse_url", url: cleanUrl }) 
+        });
+        const result = await res.json();
+        if (result.success && result.shopName) {
+          setFormData(prev => ({ ...prev, shopName: result.shopName }));
+          showToast(`✨ '${result.shopName}' 정보를 가져왔습니다.`);
+          checkDuplicate('name', result.shopName);
+        }
+      } catch (e) { 
+        console.error(e); 
+      }
     }
   };
 
@@ -331,7 +342,7 @@ export default function LunchApp() {
         visitDate: formData.visitDate, 
         category: formData.category, 
         shopName: formData.shopName.trim(), 
-        shopUrl: urlMatch ? urlMatch[1] : '', 
+        shopUrl: urlMatch ? urlMatch[1] : formData.shopUrl, // ⭐️ URL 추출값 사용
         menus: combinedMenus, 
         price: `${formData.priceMin}원 ~ ${formData.priceMax}원`
       };
@@ -492,7 +503,6 @@ export default function LunchApp() {
     touchStartY.current = 0;
   };
 
-  // 로그인되지 않았을 때 렌더링
   if (!session) return (
     <>
       <style>{`
@@ -546,7 +556,6 @@ export default function LunchApp() {
     </>
   );
 
-  // 로그인 완료 후 렌더링
   return (
     <>
       <style>{`
@@ -608,7 +617,6 @@ export default function LunchApp() {
 
         .container { max-width: 500px; margin: 0 auto; padding: 0 20px 90px 20px; } 
         
-        /* ⭐️ 상단 헤더 글래스모피즘 */
         .sticky-top-area { 
           position: sticky; top: 0; z-index: 100; 
           padding: 20px 20px 10px 20px; margin: 0 -20px; 
@@ -627,7 +635,6 @@ export default function LunchApp() {
           background: rgba(var(--bg-main-rgb), 0.90); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); 
         }
 
-        /* ⭐️ 스마트 스크롤: 필터가 헤더 뒤로 숨을 수 있도록 z-index 조정 및 transform 방향 수정 */
         .filter-section { 
           position: sticky; top: var(--sticky-top); z-index: 80; 
           padding: 10px 20px; margin: 0 -20px 15px -20px; 
@@ -636,7 +643,6 @@ export default function LunchApp() {
           transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
         }
         .filter-section.hidden { 
-          /* 헤더 영역 뒤로 완벽하게 겹쳐지도록 위로 -150% 밀어버립니다 */
           transform: translateY(-150%); 
           pointer-events: none; 
         }
@@ -917,6 +923,7 @@ export default function LunchApp() {
               </select>
             </div>
 
+            {/* ⭐️ 지도 URL 칸을 먼저 배치하여 이름을 자동 입력받게 유도 */}
             <div className="form-group">
               <label>지도 URL</label>
               <input 
