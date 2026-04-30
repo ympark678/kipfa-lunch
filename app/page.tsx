@@ -3,12 +3,10 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-// ⭐️ Supabase 클라이언트 초기화 (금고에서 키 꺼내오기)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// ⭐️ URL 크롤링용 구글 마이크로서비스 (기존 유지)
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzRoJPOYW8FB1Ck69hOl56aluBxNDjUAPewlsTEgIvK39y6hShhx4SU6K2enx0R29NLAQ/exec";
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -134,17 +132,24 @@ export default function LunchApp() {
     }
   };
 
+  // ⭐️ 버그 수정 1: 가게 이름 크롤링 (GET 방식으로 변경)
   const fetchShopNameFromServer = async (url: string) => {
     showToast("🔍 가게 정보 분석 중...");
     try {
-      const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "parse_url", url }) });
+      // POST 통신 에러를 막기 위해 GET 방식으로 URL에 쿼리를 실어 보냅니다.
+      const encodedUrl = encodeURIComponent(url);
+      const res = await fetch(`${SCRIPT_URL}?action=parse_url&url=${encodedUrl}`);
       const result = await res.json();
+      
       if (result.success && result.shopName) {
         setFormData(prev => ({ ...prev, shopName: result.shopName }));
         showToast(`✨ '${result.shopName}' 정보를 가져왔습니다.`);
         checkDuplicate('name', result.shopName);
       } else { showToast("⚠️ 가게 이름을 불러오지 못했습니다."); }
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+      console.error(e);
+      showToast("⚠️ 가게 정보 서버 통신 실패."); 
+    }
   };
 
   const handleUrlBlur = () => {
@@ -214,10 +219,19 @@ export default function LunchApp() {
   const fillFormWithData = (m: any) => {
     const ms = String(m.menu_details || '').split(', ');
     const ps = String(m.price || '').match(/[\d,]+/g);
+    
+    // ⭐️ 날짜 포맷팅 안전 장치 추가
+    let formattedDate = m.visit_date || dateOptions[0]?.value || "";
+    // 혹시 YYYY.MM.DD 형태로 저장되어 있다면 YYYY-MM-DD로 변환
+    if (formattedDate && formattedDate.includes('.')) {
+        formattedDate = formattedDate.replace(/\./g, '-');
+    }
+
     setFormData(prev => ({
       ...prev, category: m.category || '한식', shopName: m.shop_name || '', shopUrl: m.shop_url || '',
       menu1: ms[0] || '', menu2: ms[1] || '', menu3: ms[2] || '',
-      priceMin: (ps && ps[0]) ? ps[0] : "9,000", priceMax: (ps && ps[1]) ? ps[1] : "15,000"
+      priceMin: (ps && ps[0]) ? ps[0] : "9,000", priceMax: (ps && ps[1]) ? ps[1] : "15,000",
+      visitDate: formattedDate
     }));
   };
 
@@ -230,33 +244,43 @@ export default function LunchApp() {
   const openEditModal = (m: any, isRepick = false) => {
     setModalMode(isRepick ? "repick" : "edit"); setEditTargetId(isRepick ? null : m.id);
     fillFormWithData(m);
-    if (!isRepick) setFormData(prev => ({ ...prev, visitDate: m.visit_date }));
+    if (!isRepick) {
+        // 날짜 포맷 보정
+        let vd = m.visit_date;
+        if(vd && vd.includes('.')) vd = vd.replace(/\./g, '-');
+        setFormData(prev => ({ ...prev, visitDate: vd }));
+    }
     else setFormData(prev => ({ ...prev, visitDate: dateOptions[0]?.value || "" }));
     setIsModalOpen(true);
   };
 
+  // ⭐️ 버그 수정 2: 날짜 형식(visit_date)을 YYYY-MM-DD로 정확히 파싱해서 저장
   const handleModalSubmit = async () => {
     if (!formData.shopName.trim() || !formData.menu1.trim()) return showToast("⚠️ 가게명, 대표메뉴1을 입력하세요.");
     
+    // YYYY.MM.DD 등 이상한 날짜 포맷이 들어오는 것을 방지
+    const cleanDate = formData.visitDate.replace(/\./g, '-');
+
     const duplicate = menus.find(m => {
       const target = (m.shop_name || '').replace(/\s/g, '');
       const search = formData.shopName.replace(/\s/g, '');
-      return (target.includes(search) || search.includes(target)) && m.visit_date === formData.visitDate && m.id !== editTargetId;
+      return (target.includes(search) || search.includes(target)) && m.visit_date === cleanDate && m.id !== editTargetId;
     });
 
-    if (duplicate) return showToast(`🚨 이미 ${formData.visitDate}에 등록된 맛집입니다!`);
+    if (duplicate) return showToast(`🚨 이미 ${cleanDate}에 등록된 맛집입니다!`);
 
     setIsLoading(true);
     const urlMatch = formData.shopUrl.match(/(https?:\/\/[^\s]+)/);
+    const cleanUrl = urlMatch ? urlMatch[1] : formData.shopUrl;
     const combinedMenus = [formData.menu1, formData.menu2, formData.menu3].filter(Boolean).join(", ");
     
     try {
       const payload = { 
         author: session?.name, 
-        visit_date: formData.visitDate, 
+        visit_date: cleanDate, // 정제된 날짜 저장
         category: formData.category, 
         shop_name: formData.shopName.trim(), 
-        shop_url: urlMatch ? urlMatch[1] : formData.shopUrl, 
+        shop_url: cleanUrl.startsWith('http') ? cleanUrl : `https://${cleanUrl}`, // URL 포맷 강제 보정
         menu_details: combinedMenus, 
         price: `${formData.priceMin}원 ~ ${formData.priceMax}원`
       };
@@ -280,7 +304,6 @@ export default function LunchApp() {
     } catch (e) { showToast("🚨 오류 발생"); } finally { setIsLoading(false); }
   };
 
-  // ⭐️ 에러 났던 범인 (filter) 완벽 수정
   const toggleReaction = async (id: string, action: string) => {
     setReactionLoading({ id, type: action });
     try {
@@ -289,7 +312,7 @@ export default function LunchApp() {
 
       let isLike = action === 'toggle_like';
       let listStr = String(isLike ? (targetMenu.likes || '') : (targetMenu.dislikes || ''));
-      let arr = listStr.split(',').filter((x: string) => x.trim() !== ''); // 에러 해결!
+      let arr = listStr.split(',').filter((x: string) => x.trim() !== '');
       
       let isCancel = arr.includes(session?.pin as string);
       if (isCancel) arr = arr.filter(p => p !== session?.pin);
@@ -310,6 +333,7 @@ export default function LunchApp() {
     navigator.clipboard.writeText(text).then(() => showToast("📋 링크가 복사되었습니다!")).catch(() => showToast("🚨 복사 실패"));
   };
 
+  // ⭐️ 날짜 파싱 로직 개선 (문자열 호환성 강화)
   const filteredData = useMemo(() => {
     const today = new Date(); today.setHours(0,0,0,0);
     const day = today.getDay(); const diff = today.getDate() - day + (day === 0 ? -6 : 1);
@@ -321,7 +345,11 @@ export default function LunchApp() {
     
     menus.forEach(m => {
       if (!m.visit_date) return;
-      const d = new Date(m.visit_date + "T00:00:00");
+      
+      // visit_date가 '2026-04-30' 같은 형태라고 가정하고 Date 객체 생성
+      const cleanDateStr = String(m.visit_date).replace(/\./g, '-');
+      const d = new Date(`${cleanDateStr}T00:00:00`);
+      
       if (d >= thisS && d < nextN) pickNames.push(String(m.shop_name).replace(/\s/g, ""));
       if (d >= thisS && d < nextS) tw.push(m); else if (d >= nextS && d < nextN) nw.push(m);
     });
@@ -540,10 +568,9 @@ export default function LunchApp() {
     </>
   );
 
-  // ⭐️ 에러 났던 범인 (filter) 완벽 수정
   function Card({ menu: m, type }: { menu: any, type: string }) {
-    const likes = String(m.likes || '').split(',').filter((x: string) => x.trim() !== ''); // 에러 해결!
-    const dislikes = String(m.dislikes || '').split(',').filter((x: string) => x.trim() !== ''); // 에러 해결!
+    const likes = String(m.likes || '').split(',').filter((x: string) => x.trim() !== '');
+    const dislikes = String(m.dislikes || '').split(',').filter((x: string) => x.trim() !== '');
     const isDeleteRequested = m.delete_requested === 'Y';
     const dateStr = m.visit_date || '미정';
     const cleanName = (m.shop_name || '').replace(/\s/g, '');
