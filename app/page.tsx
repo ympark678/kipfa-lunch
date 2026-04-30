@@ -119,7 +119,6 @@ export default function LunchApp() {
     return () => window.removeEventListener("resize", updateStickyGap);
   }, [session, activeTab]);
 
-  // ⭐️ Supabase에서 메뉴 목록 불러오기
   const fetchMenus = async (silent = false) => {
     if (!silent && menus.length === 0 && !isRefreshing) setIsInitialLoading(true);
     if (!silent && menus.length > 0 && !isRefreshing) setIsLoading(true);
@@ -173,7 +172,6 @@ export default function LunchApp() {
     }
   };
 
-  // ⭐️ Supabase에서 유저 로그인 검증
   const handleLogin = async () => {
     if (pin.length !== 4) return showToast("⚠️ 4자리 번호를 입력해주세요.");
     
@@ -237,7 +235,6 @@ export default function LunchApp() {
     setIsModalOpen(true);
   };
 
-  // ⭐️ Supabase에 메뉴 추가/수정
   const handleModalSubmit = async () => {
     if (!formData.shopName.trim() || !formData.menu1.trim()) return showToast("⚠️ 가게명, 대표메뉴1을 입력하세요.");
     
@@ -275,7 +272,6 @@ export default function LunchApp() {
     } catch (e) { showToast("🚨 통신 오류"); } finally { setIsLoading(false); }
   };
 
-  // ⭐️ Supabase에 삭제 요청 업데이트
   const submitDeleteRequest = async () => {
     setIsLoading(true); setIsDeleteModalOpen(false);
     try {
@@ -284,7 +280,7 @@ export default function LunchApp() {
     } catch (e) { showToast("🚨 오류 발생"); } finally { setIsLoading(false); }
   };
 
-  // ⭐️ Supabase에 좋아요/싫어요 토글
+  // ⭐️ 에러 났던 범인 (filter) 완벽 수정
   const toggleReaction = async (id: string, action: string) => {
     setReactionLoading({ id, type: action });
     try {
@@ -292,8 +288,8 @@ export default function LunchApp() {
       if (!targetMenu) return;
 
       let isLike = action === 'toggle_like';
-      let listStr = isLike ? (targetMenu.likes || '') : (targetMenu.dislikes || '');
-      let arr = listStr.split(',').filter(x => x);
+      let listStr = String(isLike ? (targetMenu.likes || '') : (targetMenu.dislikes || ''));
+      let arr = listStr.split(',').filter((x: string) => x.trim() !== ''); // 에러 해결!
       
       let isCancel = arr.includes(session?.pin as string);
       if (isCancel) arr = arr.filter(p => p !== session?.pin);
@@ -544,9 +540,10 @@ export default function LunchApp() {
     </>
   );
 
+  // ⭐️ 에러 났던 범인 (filter) 완벽 수정
   function Card({ menu: m, type }: { menu: any, type: string }) {
-    const likes = String(m.likes || '').split(',').filter(x=>x);
-    const dislikes = String(m.dislikes || '').split(',').filter(x=>x);
+    const likes = String(m.likes || '').split(',').filter((x: string) => x.trim() !== ''); // 에러 해결!
+    const dislikes = String(m.dislikes || '').split(',').filter((x: string) => x.trim() !== ''); // 에러 해결!
     const isDeleteRequested = m.delete_requested === 'Y';
     const dateStr = m.visit_date || '미정';
     const cleanName = (m.shop_name || '').replace(/\s/g, '');
