@@ -1,16 +1,18 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
+import { createClient } from "@supabase/supabase-js";
 
+// ⭐️ Supabase 클라이언트 초기화 (금고에서 키 꺼내오기)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// ⭐️ URL 크롤링용 구글 마이크로서비스 (기존 유지)
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzRoJPOYW8FB1Ck69hOl56aluBxNDjUAPewlsTEgIvK39y6hShhx4SU6K2enx0R29NLAQ/exec";
 
 const CATEGORY_EMOJI: Record<string, string> = {
-  "한식": "🍚 한식",
-  "중식": "🥢 중식",
-  "일식": "🍣 일식",
-  "양식": "🍝 양식",
-  "분식": "🥘 분식",
-  "기타": "🍽️ 기타"
+  "한식": "🍚 한식", "중식": "🥢 중식", "일식": "🍣 일식", "양식": "🍝 양식", "분식": "🥘 분식", "기타": "🍽️ 기타"
 };
 
 export default function LunchApp() {
@@ -42,15 +44,8 @@ export default function LunchApp() {
   const [deleteReason, setDeleteReason] = useState("폐업/이전");
 
   const [formData, setFormData] = useState({
-    visitDate: "", 
-    category: "한식", 
-    shopName: "", 
-    shopUrl: "",
-    priceMin: "9,000", 
-    priceMax: "15,000",
-    menu1: "", 
-    menu2: "", 
-    menu3: "" 
+    visitDate: "", category: "한식", shopName: "", shopUrl: "",
+    priceMin: "9,000", priceMax: "15,000", menu1: "", menu2: "", menu3: "" 
   });
 
   const [isRouletteOpen, setIsRouletteOpen] = useState(false);
@@ -62,23 +57,13 @@ export default function LunchApp() {
   const touchStartY = useRef(0);
 
   const dateOptions = useMemo(() => {
-    let today = new Date(); 
-    today.setHours(0,0,0,0);
-    let day = today.getDay();
-    let diff = today.getDate() - day + (day === 0 ? -6 : 1);
-    let start = new Date(today); 
-    start.setDate(diff);
+    let today = new Date(); today.setHours(0,0,0,0);
+    let day = today.getDay(); let diff = today.getDate() - day + (day === 0 ? -6 : 1);
+    let start = new Date(today); start.setDate(diff);
     
-    const offsets = [
-      {d: 2, l: '이번주 수'}, 
-      {d: 4, l: '이번주 금'}, 
-      {d: 9, l: '다음주 수'}, 
-      {d: 11, l: '다음주 금'}
-    ];
-    
+    const offsets = [{d: 2, l: '이번주 수'}, {d: 4, l: '이번주 금'}, {d: 9, l: '다음주 수'}, {d: 11, l: '다음주 금'}];
     return offsets.map(o => {
-      let d = new Date(start); 
-      d.setDate(start.getDate() + o.d);
+      let d = new Date(start); d.setDate(start.getDate() + o.d);
       if (d >= today) {
         let f = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
         return { label: `[${o.l}] ${f}`, value: f };
@@ -89,9 +74,7 @@ export default function LunchApp() {
 
   const priceOptions = useMemo(() => {
     const opts = [];
-    for (let i = 500; i <= 50000; i += 500) {
-      opts.push(i.toLocaleString());
-    }
+    for (let i = 500; i <= 50000; i += 500) opts.push(i.toLocaleString());
     return opts;
   }, []);
 
@@ -106,9 +89,7 @@ export default function LunchApp() {
     if (savedPin && savedName) { 
       setSession({ pin: savedPin, name: savedName }); 
       fetchMenus(); 
-    } else {
-      setIsInitialLoading(false);
-    }
+    } else { setIsInitialLoading(false); }
   }, []);
 
   useEffect(() => {
@@ -117,21 +98,15 @@ export default function LunchApp() {
     }
   }, [dateOptions]);
 
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    setIsScrollDown(false); 
-  }, [activeTab]);
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); setIsScrollDown(false); }, [activeTab]);
 
   useEffect(() => {
     let lastY = window.scrollY;
     const handleScroll = () => {
       const currentY = window.scrollY;
       setIsScrolled(currentY > 10);
-      if (currentY > 50 && currentY > lastY + 15) {
-        setIsScrollDown(true);
-      } else if (currentY < lastY - 15 || currentY <= 50) {
-        setIsScrollDown(false);
-      }
+      if (currentY > 50 && currentY > lastY + 15) setIsScrollDown(true);
+      else if (currentY < lastY - 15 || currentY <= 50) setIsScrollDown(false);
       lastY = currentY;
     };
     window.addEventListener("scroll", handleScroll, { passive: true });
@@ -139,37 +114,27 @@ export default function LunchApp() {
   }, []);
 
   useEffect(() => {
-    const updateStickyGap = () => { 
-      if (headerRef.current) {
-        setStickyTop(Math.floor(headerRef.current.getBoundingClientRect().height) - 1); 
-      }
-    };
-    if (session) { 
-      updateStickyGap(); 
-      window.addEventListener("resize", updateStickyGap); 
-    }
+    const updateStickyGap = () => { if (headerRef.current) setStickyTop(Math.floor(headerRef.current.getBoundingClientRect().height) - 1); };
+    if (session) { updateStickyGap(); window.addEventListener("resize", updateStickyGap); }
     return () => window.removeEventListener("resize", updateStickyGap);
   }, [session, activeTab]);
 
+  // ⭐️ Supabase에서 메뉴 목록 불러오기
   const fetchMenus = async (silent = false) => {
     if (!silent && menus.length === 0 && !isRefreshing) setIsInitialLoading(true);
     if (!silent && menus.length > 0 && !isRefreshing) setIsLoading(true);
 
     try {
-      const res = await fetch(SCRIPT_URL);
-      const data = await res.json();
-      setMenus(data);
+      const { data, error } = await supabase.from('menus').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
+      if (data) setMenus(data);
     } catch (e) { 
       showToast("🚨 데이터 로딩 실패"); 
     } finally { 
-      setIsInitialLoading(false);
-      setIsLoading(false); 
-      setIsRefreshing(false); 
-      setPullDistance(0);
+      setIsInitialLoading(false); setIsLoading(false); setIsRefreshing(false); setPullDistance(0);
     }
   };
 
-  // ⭐️ [신규] 서버에 가게 이름 물어보는 함수 분리
   const fetchShopNameFromServer = async (url: string) => {
     showToast("🔍 가게 정보 분석 중...");
     try {
@@ -179,85 +144,48 @@ export default function LunchApp() {
         setFormData(prev => ({ ...prev, shopName: result.shopName }));
         showToast(`✨ '${result.shopName}' 정보를 가져왔습니다.`);
         checkDuplicate('name', result.shopName);
-      }
+      } else { showToast("⚠️ 가게 이름을 불러오지 못했습니다."); }
     } catch (e) { console.error(e); }
   };
 
-  // ⭐️ [핵심] 클립보드 원문 가로채기 (엔터키 보존)
-  const handleUrlPaste = (e: any) => {
-    const pastedText = e.clipboardData.getData('text');
-    if (!pastedText) return;
+  const handleUrlBlur = () => {
+    const val = formData.shopUrl;
+    if (!val) return;
 
-    // 1. URL만 쏙 빼내기
-    const urlMatch = pastedText.match(/(https?:\/\/[^\s]+)/);
-    const cleanUrl = urlMatch ? urlMatch[0] : pastedText;
-    
-    let newName = "";
-    let foundLocally = false;
-
-    // 2. 원문 텍스트(줄바꿈 살아있음)에서 바로 이름 뽑아내기
-    if (pastedText.includes("[네이버") || pastedText.includes("[카카오맵]")) {
-      const lines = pastedText.split('\n').map((line: string) => line.trim()).filter((line: string) => line.length > 0);
-      if (lines[0].includes("[네이버") && lines.length >= 2) {
-        newName = lines[1]; // 네이버는 두번째 줄이 가게명
-        foundLocally = true;
-      } else if (lines[0].includes("[카카오맵]")) {
-        newName = lines[0].replace("[카카오맵]", "").trim(); // 카카오는 첫줄 옆이 가게명
-        foundLocally = true;
-      }
-    }
-
-    if (urlMatch || foundLocally) {
-      e.preventDefault(); // 기본 붙여넣기(글씨 뭉개짐) 원천 차단
-      
-      // 화면 상태 즉시 업데이트
-      setFormData(prev => ({ 
-        ...prev, 
-        shopUrl: cleanUrl, 
-        shopName: foundLocally ? newName : prev.shopName 
-      }));
-      
-      // 이름 찾았으면 끝, 못 찾았으면 서버로 SOS
-      if (foundLocally) {
-        showToast(`✨ 가게 이름 자동 입력 완료!`);
-        checkDuplicate('name', newName);
-      } else if (cleanUrl.includes("naver") || cleanUrl.includes("kakao")) {
-        fetchShopNameFromServer(cleanUrl);
-      }
-    }
-  };
-
-  // ⭐️ 직접 타이핑하거나 붙여넣기가 안 먹혔을 때의 2차 방어선
-  const handleUrlBlur = (e: any) => {
-    const val = e.target.value;
-    if (!val || (!val.includes("naver") && !val.includes("kakao"))) return;
-    
     const urlMatch = val.match(/(https?:\/\/[^\s]+)/);
     const cleanUrl = urlMatch ? urlMatch[0] : val;
-    
-    if (cleanUrl !== val) {
-      setFormData(prev => ({ ...prev, shopUrl: cleanUrl }));
+
+    let newName = formData.shopName;
+    let foundLocally = false;
+
+    if (val.includes("[네이버") || val.includes("[카카오맵]")) {
+      const lines = val.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+      if (lines.length >= 2 && lines[0].includes("[네이버")) { newName = lines[1]; foundLocally = true; } 
+      else if (lines.length > 0 && lines[0].includes("[카카오맵]")) { newName = lines[0].replace("[카카오맵]", "").trim(); foundLocally = true; }
     }
 
-    // 이름이 여전히 비어있다면 서버에 분석 요청
-    if (!formData.shopName && (cleanUrl.includes("naver") || cleanUrl.includes("kakao"))) {
+    setFormData(prev => ({ ...prev, shopUrl: cleanUrl, shopName: foundLocally ? newName : prev.shopName }));
+
+    if (foundLocally) {
+      showToast(`✨ 가게 이름 자동 입력 완료!`); checkDuplicate('name', newName);
+    } else if (!newName && (cleanUrl.includes("naver") || cleanUrl.includes("kakao"))) {
       fetchShopNameFromServer(cleanUrl);
     }
   };
 
+  // ⭐️ Supabase에서 유저 로그인 검증
   const handleLogin = async () => {
     if (pin.length !== 4) return showToast("⚠️ 4자리 번호를 입력해주세요.");
     
     setIsLoading(true);
     try {
-      const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "verify_pin", pin: pin }) });
-      const result = await res.json();
+      const { data, error } = await supabase.from('users').select('name').eq('pin', pin).single();
       
-      if (result.success) {
+      if (data) {
         localStorage.setItem("lunchUserPin", pin);
-        localStorage.setItem("lunchUserName", result.userName);
-        setSession({ pin: pin, name: result.userName });
-        showToast(`환영합니다, ${result.userName}님! 👋`);
+        localStorage.setItem("lunchUserName", data.name);
+        setSession({ pin: pin, name: data.name });
+        showToast(`환영합니다, ${data.name}님! 👋`);
         fetchMenus();
       } else {
         showToast("❌ 등록되지 않은 번호입니다.");
@@ -266,10 +194,8 @@ export default function LunchApp() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("lunchUserPin");
-    localStorage.removeItem("lunchUserName");
-    setSession(null);
-    setPin("");
+    localStorage.removeItem("lunchUserPin"); localStorage.removeItem("lunchUserName");
+    setSession(null); setPin("");
   };
 
   const checkDuplicate = (type: 'name' | 'url', value: string) => {
@@ -278,59 +204,47 @@ export default function LunchApp() {
     
     const search = value.replace(/\s/g, '');
     const found = menus.find(m => {
-      const target = (type === 'name' ? m['가게명'] : (m['가게URL'] || '')).replace(/\s/g, '');
+      const target = (type === 'name' ? m.shop_name : (m.shop_url || '')).replace(/\s/g, '');
       return target.includes(search) || search.includes(target);
     });
     
-    if (found && confirm(`이미 등록된 맛집인 것 같아요. [${found['가게명']}]\n정보를 불러올까요?`)) {
-      fillFormWithData(found);
-      setModalMode('edit');
-      setEditTargetId(found['ID']);
+    if (found && confirm(`이미 등록된 맛집인 것 같아요. [${found.shop_name}]\n정보를 불러올까요?`)) {
+      fillFormWithData(found); setModalMode('edit'); setEditTargetId(found.id);
     }
   };
 
   const fillFormWithData = (m: any) => {
-    const ms = String(m['대표메뉴'] || '').split(', ');
-    const ps = String(m['가격대'] || '').match(/[\d,]+/g);
+    const ms = String(m.menu_details || '').split(', ');
+    const ps = String(m.price || '').match(/[\d,]+/g);
     setFormData(prev => ({
-      ...prev, 
-      category: m['카테고리'] || '한식', 
-      shopName: m['가게명'] || '', 
-      shopUrl: m['가게URL'] || '',
-      menu1: ms[0] || '', 
-      menu2: ms[1] || '', 
-      menu3: ms[2] || '',
-      priceMin: (ps && ps[0]) ? ps[0] : "9,000", 
-      priceMax: (ps && ps[1]) ? ps[1] : "15,000"
+      ...prev, category: m.category || '한식', shopName: m.shop_name || '', shopUrl: m.shop_url || '',
+      menu1: ms[0] || '', menu2: ms[1] || '', menu3: ms[2] || '',
+      priceMin: (ps && ps[0]) ? ps[0] : "9,000", priceMax: (ps && ps[1]) ? ps[1] : "15,000"
     }));
   };
 
   const openAddModal = () => {
-    setModalMode("add");
-    setEditTargetId(null);
-    setFormData({ 
-      visitDate: dateOptions[0]?.value || "", category: "한식", shopName: "", shopUrl: "", priceMin: "9,000", priceMax: "15,000", menu1: "", menu2: "", menu3: "" 
-    });
+    setModalMode("add"); setEditTargetId(null);
+    setFormData({ visitDate: dateOptions[0]?.value || "", category: "한식", shopName: "", shopUrl: "", priceMin: "9,000", priceMax: "15,000", menu1: "", menu2: "", menu3: "" });
     setIsModalOpen(true);
   };
 
   const openEditModal = (m: any, isRepick = false) => {
-    setModalMode(isRepick ? "repick" : "edit");
-    setEditTargetId(isRepick ? null : m.ID);
+    setModalMode(isRepick ? "repick" : "edit"); setEditTargetId(isRepick ? null : m.id);
     fillFormWithData(m);
-    if (!isRepick) setFormData(prev => ({ ...prev, visitDate: String(m["추천방문일"]).split("T")[0] }));
+    if (!isRepick) setFormData(prev => ({ ...prev, visitDate: m.visit_date }));
     else setFormData(prev => ({ ...prev, visitDate: dateOptions[0]?.value || "" }));
     setIsModalOpen(true);
   };
 
+  // ⭐️ Supabase에 메뉴 추가/수정
   const handleModalSubmit = async () => {
     if (!formData.shopName.trim() || !formData.menu1.trim()) return showToast("⚠️ 가게명, 대표메뉴1을 입력하세요.");
     
     const duplicate = menus.find(m => {
-      const target = (m['가게명'] || '').replace(/\s/g, '');
+      const target = (m.shop_name || '').replace(/\s/g, '');
       const search = formData.shopName.replace(/\s/g, '');
-      const dStr = String(m['추천방문일']).split('T')[0];
-      return (target.includes(search) || search.includes(target)) && dStr === formData.visitDate && m['ID'] !== editTargetId;
+      return (target.includes(search) || search.includes(target)) && m.visit_date === formData.visitDate && m.id !== editTargetId;
     });
 
     if (duplicate) return showToast(`🚨 이미 ${formData.visitDate}에 등록된 맛집입니다!`);
@@ -340,49 +254,59 @@ export default function LunchApp() {
     const combinedMenus = [formData.menu1, formData.menu2, formData.menu3].filter(Boolean).join(", ");
     
     try {
-      const action = (modalMode === "edit") ? "edit_menu" : "add_menu";
       const payload = { 
-        action, id: editTargetId, author: session?.name, visitDate: formData.visitDate, 
-        category: formData.category, shopName: formData.shopName.trim(), 
-        shopUrl: urlMatch ? urlMatch[1] : formData.shopUrl, 
-        menus: combinedMenus, price: `${formData.priceMin}원 ~ ${formData.priceMax}원`
+        author: session?.name, 
+        visit_date: formData.visitDate, 
+        category: formData.category, 
+        shop_name: formData.shopName.trim(), 
+        shop_url: urlMatch ? urlMatch[1] : formData.shopUrl, 
+        menu_details: combinedMenus, 
+        price: `${formData.priceMin}원 ~ ${formData.priceMax}원`
       };
-      const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
-      const result = await res.json();
       
-      if (result.success) {
-        showToast(modalMode === "edit" ? "✨ 수정 완료!" : "✨ 추천 완료!");
-        setIsModalOpen(false); fetchMenus(true);
+      if (modalMode === "edit" && editTargetId) {
+        await supabase.from('menus').update(payload).eq('id', editTargetId);
+      } else {
+        await supabase.from('menus').insert([payload]);
       }
+      
+      showToast(modalMode === "edit" ? "✨ 수정 완료!" : "✨ 추천 완료!");
+      setIsModalOpen(false); fetchMenus(true);
     } catch (e) { showToast("🚨 통신 오류"); } finally { setIsLoading(false); }
   };
 
+  // ⭐️ Supabase에 삭제 요청 업데이트
   const submitDeleteRequest = async () => {
     setIsLoading(true); setIsDeleteModalOpen(false);
     try {
-      const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "request_delete", id: deleteTargetId, reason: deleteReason }) });
-      const result = await res.json();
-      if (result.success) { showToast("🗑️ 삭제 요청 접수!"); fetchMenus(true); }
+      await supabase.from('menus').update({ delete_requested: 'Y', delete_reason: deleteReason }).eq('id', deleteTargetId);
+      showToast("🗑️ 삭제 요청 접수!"); fetchMenus(true);
     } catch (e) { showToast("🚨 오류 발생"); } finally { setIsLoading(false); }
   };
 
+  // ⭐️ Supabase에 좋아요/싫어요 토글
   const toggleReaction = async (id: string, action: string) => {
     setReactionLoading({ id, type: action });
     try {
-      const targetMenu = menus.find(m => m.ID === id);
-      let isCancel = false;
-      if (targetMenu) {
-        const list = action === 'toggle_like' ? String(targetMenu['좋아요누른사람'] || '').split(',') : String(targetMenu['싫어요누른사람'] || '').split(',');
-        isCancel = list.includes(session?.pin as string);
-      }
+      const targetMenu = menus.find(m => m.id === id);
+      if (!targetMenu) return;
 
-      const res = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action, id, userPin: session?.pin }) });
-      const result = await res.json();
-      if (result.success) {
-        fetchMenus(true);
-        if (isCancel) showToast(action === 'toggle_like' ? "🤍 좋아요가 취소되었습니다." : "👎 싫어요가 취소되었습니다.");
-        else showToast(action === 'toggle_like' ? "❤️ 좋아요를 눌렀습니다!" : "💔 싫어요를 눌렀습니다.");
-      }
+      let isLike = action === 'toggle_like';
+      let listStr = isLike ? (targetMenu.likes || '') : (targetMenu.dislikes || '');
+      let arr = listStr.split(',').filter(x => x);
+      
+      let isCancel = arr.includes(session?.pin as string);
+      if (isCancel) arr = arr.filter(p => p !== session?.pin);
+      else arr.push(session?.pin as string);
+
+      const updateData = isLike ? { likes: arr.join(',') } : { dislikes: arr.join(',') };
+      
+      await supabase.from('menus').update(updateData).eq('id', id);
+
+      fetchMenus(true);
+      if (isCancel) showToast(isLike ? "🤍 좋아요가 취소되었습니다." : "👎 싫어요가 취소되었습니다.");
+      else showToast(isLike ? "❤️ 좋아요를 눌렀습니다!" : "💔 싫어요를 눌렀습니다.");
+      
     } catch (e) { showToast("🚨 오류 발생"); } finally { setReactionLoading(null); }
   };
 
@@ -398,29 +322,29 @@ export default function LunchApp() {
     const nextN = new Date(nextS); nextN.setDate(nextS.getDate() + 7);
 
     const tw: any[] = []; const nw: any[] = []; const pickNames: string[] = [];
+    
     menus.forEach(m => {
-      if (!m["추천방문일"]) return;
-      const d = new Date(String(m["추천방문일"]).split("T")[0] + "T00:00:00");
-      if (d >= thisS && d < nextN) pickNames.push(String(m["가게명"]).replace(/\s/g, ""));
+      if (!m.visit_date) return;
+      const d = new Date(m.visit_date + "T00:00:00");
+      if (d >= thisS && d < nextN) pickNames.push(String(m.shop_name).replace(/\s/g, ""));
       if (d >= thisS && d < nextS) tw.push(m); else if (d >= nextS && d < nextN) nw.push(m);
     });
 
     const uniqueMap = new Map();
-    menus.forEach(m => uniqueMap.set(String(m["가게명"]).replace(/\s/g, ""), m));
+    menus.forEach(m => uniqueMap.set(String(m.shop_name).replace(/\s/g, ""), m));
     
     const allF = Array.from(uniqueMap.values()).reverse().filter(m => {
-      const matchC = categoryFilter === "all" || m["카테고리"] === categoryFilter;
-      const matchS = String(m["가게명"]).includes(searchQuery) || String(m["대표메뉴"]).includes(searchQuery);
+      const matchC = categoryFilter === "all" || m.category === categoryFilter;
+      const matchS = String(m.shop_name).includes(searchQuery) || String(m.menu_details).includes(searchQuery);
       return matchC && matchS;
     }).sort((a, b) => {
       if (sortOption === 'likes') {
-        const likesA = String(a['좋아요누른사람'] || '').split(',').filter(Boolean).length;
-        const likesB = String(b['좋아요누른사람'] || '').split(',').filter(Boolean).length;
+        const likesA = String(a.likes || '').split(',').filter(Boolean).length;
+        const likesB = String(b.likes || '').split(',').filter(Boolean).length;
         return likesB - likesA; 
       }
       return 0; 
     });
-    
     return { tw, nw, allF, pickNames };
   }, [menus, searchQuery, categoryFilter, sortOption]);
 
@@ -575,16 +499,16 @@ export default function LunchApp() {
             <div className="tabs"><div className={`tab ${activeTab === 'pick' ? 'active' : ''}`} onClick={() => setActiveTab('pick')}>📅 이번주/다음주 Pick</div><div className={`tab ${activeTab === 'all' ? 'active' : ''}`} onClick={() => setActiveTab('all')}>📂 전체 맛집 보기</div></div>
           </div>
           {isInitialLoading ? (
-            <div style={{marginTop: '20px'}}><h3 className="section-title">데이터 로딩 중...</h3>{[1, 2, 3].map(i => (<div key={i} className="skeleton-card"><div className="skeleton" style={{width:'60px', height:'24px', marginBottom:'12px'}}></div><div className="skeleton" style={{width:'70%', height:'28px', marginBottom:'10px'}}></div></div>))}</div>
+            <div style={{marginTop: '20px'}}><h3 className="section-title">데이터 로딩 중...</h3>{[1, 2, 3].map(i => (<div key={i} className="skeleton-card"><div className="skeleton" style={{width:'60px', height:'24px', marginBottom:'12px'}}></div><div className="skeleton" style={{width:'40%', height:'16px', marginBottom:'10px'}}></div><div className="skeleton" style={{width:'70%', height:'28px', marginBottom:'15px'}}></div><div className="skeleton" style={{width:'100%', height:'40px', borderRadius:'10px'}}></div></div>))}</div>
           ) : (
             <div style={{marginTop: '20px'}}>
               {activeTab === 'pick' && (
-                <div><h3 className="section-title">🎯 이번주 수/금 회식 후보</h3>{filteredData.tw.length === 0 ? <div className="empty-state"><div className="empty-icon">🍳</div><div className="empty-title">후보가 없습니다.</div><div className="empty-desc">새로운 맛집을 공유해 주세요.</div></div> : filteredData.tw.map(m => <Card key={m.ID} menu={m} type="pick" />)}<h3 className="section-title">🗓️ 다음주 수/금 회식 후보</h3>{filteredData.nw.length === 0 ? <div className="empty-state"><div className="empty-icon">🗓️</div><div className="empty-title">후보가 없습니다.</div><div className="empty-desc">새로운 맛집을 공유해 주세요.</div></div> : filteredData.nw.map(m => <Card key={m.ID} menu={m} type="pick" />)}</div>
+                <div><h3 className="section-title">🎯 이번주 수/금 회식 후보</h3>{filteredData.tw.length === 0 ? <div className="empty-state"><div className="empty-icon">🍳</div><div className="empty-title">후보가 없습니다.</div><div className="empty-desc">새로운 맛집을 공유해 주세요.</div></div> : filteredData.tw.map(m => <Card key={m.id} menu={m} type="pick" />)}<h3 className="section-title">🗓️ 다음주 수/금 회식 후보</h3>{filteredData.nw.length === 0 ? <div className="empty-state"><div className="empty-icon">🗓️</div><div className="empty-title">후보가 없습니다.</div><div className="empty-desc">새로운 맛집을 공유해 주세요.</div></div> : filteredData.nw.map(m => <Card key={m.id} menu={m} type="pick" />)}</div>
               )}
               {activeTab === 'all' && (
                 <div>
                   <div className={`filter-section ${isScrollDown ? 'hidden' : ''}`}><div style={{ display: 'flex', gap: '10px' }}><input type="text" className="search-input" placeholder="🔍 맛집 검색..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{flex: 1}} /><select className="category-select" style={{width: '120px'}} value={sortOption} onChange={e => setSortOption(e.target.value as any)}><option value="latest">⏱️ 최신순</option><option value="likes">❤️ 인기순</option></select></div><div className="pill-scroll-container"><button className={`pill-btn ${categoryFilter === 'all' ? 'active' : ''}`} onClick={() => setCategoryFilter('all')}>🏷️ 전체</button>{Object.keys(CATEGORY_EMOJI).map(c => <button key={c} className={`pill-btn ${categoryFilter === c ? 'active' : ''}`} onClick={() => setCategoryFilter(c)}>{CATEGORY_EMOJI[c]}</button>)}</div></div>
-                  {filteredData.allF.length === 0 ? <div className="empty-state" style={{marginTop: '40px'}}><div className="empty-icon">🔍</div><div className="empty-title">결과가 없습니다.</div></div> : filteredData.allF.map(m => <Card key={m.ID} menu={m} type="all" />)}
+                  {filteredData.allF.length === 0 ? <div className="empty-state" style={{marginTop: '40px'}}><div className="empty-icon">🔍</div><div className="empty-title">결과가 없습니다.</div></div> : filteredData.allF.map(m => <Card key={m.id} menu={m} type="all" />)}
                 </div>
               )}
             </div>
@@ -593,7 +517,7 @@ export default function LunchApp() {
       </div>
       <div className="fab-container">{activeTab === 'pick' && <button className="fab fab-secondary" onClick={spinRoulette}>🎲</button>}<button className="fab" onClick={openAddModal}>＋</button></div>
       {isRouletteOpen && (
-        <div className="modal" onClick={() => !isSpinning && setIsRouletteOpen(false)}><div className="modal-content" style={{textAlign: 'center', padding: '40px 20px'}} onClick={e => e.stopPropagation()}><div className="modal-title-sticky" style={{textAlign: 'left', marginBottom: '20px'}}>🎲 오늘의 회식 Pick은?</div>{rouletteResult && (<div style={{background: 'rgb(var(--bg-main-rgb))', padding: '30px 20px', borderRadius: '20px', border: '2px solid var(--border)', marginBottom: '20px'}}><div style={{fontSize: '32px', marginBottom: '10px'}}>{CATEGORY_EMOJI[rouletteResult['카테고리']]?.split(' ')[0] || '🍽️'}</div><div style={{fontSize: '14px', color: 'var(--text-sub)', fontWeight: '800', marginBottom: '5px'}}>{rouletteResult['가게명']}</div><div style={{fontSize: '22px', fontWeight: '900', color: '#3498db', wordBreak: 'keep-all'}}>{rouletteResult['대표메뉴']}</div></div>)}<button className="btn" onClick={spinRoulette} disabled={isSpinning}>{isSpinning ? '고르는 중...' : '다시 돌리기 🔄'}</button>{!isSpinning && rouletteResult && (<button className="btn-outline" onClick={() => copyToClipboard(`[오늘의 점심 룰렛 결과!]\n🏠 ${rouletteResult['가게명']}\n🍽️ 메뉴: ${rouletteResult['대표메뉴']}\n📍 ${rouletteResult['가게URL']}`)}>📤 결과 공유하기</button>)}</div></div>
+        <div className="modal" onClick={() => !isSpinning && setIsRouletteOpen(false)}><div className="modal-content" style={{textAlign: 'center', padding: '40px 20px'}} onClick={e => e.stopPropagation()}><div className="modal-title-sticky" style={{textAlign: 'left', marginBottom: '20px'}}>🎲 오늘의 회식 Pick은?</div>{rouletteResult && (<div style={{background: 'rgb(var(--bg-main-rgb))', padding: '30px 20px', borderRadius: '20px', border: '2px solid var(--border)', marginBottom: '20px'}}><div style={{fontSize: '32px', marginBottom: '10px'}}>{CATEGORY_EMOJI[rouletteResult.category]?.split(' ')[0] || '🍽️'}</div><div style={{fontSize: '14px', color: 'var(--text-sub)', fontWeight: '800', marginBottom: '5px'}}>{rouletteResult.shop_name}</div><div style={{fontSize: '22px', fontWeight: '900', color: '#3498db', wordBreak: 'keep-all'}}>{rouletteResult.menu_details}</div></div>)}<button className="btn" onClick={spinRoulette} disabled={isSpinning}>{isSpinning ? '고르는 중...' : '다시 돌리기 🔄'}</button>{!isSpinning && rouletteResult && (<button className="btn-outline" onClick={() => copyToClipboard(`[오늘의 점심 룰렛 결과!]\n🏠 ${rouletteResult.shop_name}\n🍽️ 메뉴: ${rouletteResult.menu_details}\n📍 ${rouletteResult.shop_url}`)}>📤 결과 공유하기</button>)}</div></div>
       )}
       {isModalOpen && (
         <div className="modal" onClick={() => setIsModalOpen(false)}>
@@ -604,8 +528,7 @@ export default function LunchApp() {
               <select value={formData.visitDate} onChange={e => setFormData({...formData, visitDate: e.target.value})} style={modalMode === 'repick' ? { border: '2px solid #3498db' } : {}}>{dateOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select>
             </div>
             
-            {/* ⭐️ [핵심] onPaste 이벤트 추가! 붙여넣기 시 handleUrlPaste 작동 */}
-            <div className="form-group"><label>지도 URL</label><input type="text" placeholder="네이버/카카오 지도 링크를 붙여넣으세요" value={formData.shopUrl} onChange={e => setFormData({...formData, shopUrl: e.target.value})} onPaste={handleUrlPaste} onBlur={handleUrlBlur} /></div>
+            <div className="form-group"><label>지도 URL</label><input type="text" placeholder="네이버/카카오 지도 링크를 붙여넣으세요" value={formData.shopUrl} onChange={e => setFormData({...formData, shopUrl: e.target.value})} onBlur={handleUrlBlur} /></div>
             
             <div className="form-group"><label>가게명</label><input type="text" placeholder="링크를 붙여넣으면 자동 입력됩니다" value={formData.shopName} onChange={e => setFormData({...formData, shopName: e.target.value})} onBlur={e => checkDuplicate('name', e.target.value)} /></div>
             <div className="form-group"><label>카테고리</label><select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>{Object.keys(CATEGORY_EMOJI).map(c => <option key={c} value={c}>{CATEGORY_EMOJI[c]}</option>)}</select></div>
@@ -622,16 +545,17 @@ export default function LunchApp() {
   );
 
   function Card({ menu: m, type }: { menu: any, type: string }) {
-    const likes = String(m['좋아요누른사람'] || '').split(',').filter(x=>x);
-    const dislikes = String(m['싫어요누른사람'] || '').split(',').filter(x=>x);
-    const isDeleteRequested = m['삭제요청상태'] === 'Y';
-    const dateStr = String(m['추천방문일']).split('T')[0] || '미정';
-    const cleanName = (m['가게명'] || '').replace(/\s/g, '');
+    const likes = String(m.likes || '').split(',').filter(x=>x);
+    const dislikes = String(m.dislikes || '').split(',').filter(x=>x);
+    const isDeleteRequested = m.delete_requested === 'Y';
+    const dateStr = m.visit_date || '미정';
+    const cleanName = (m.shop_name || '').replace(/\s/g, '');
     const isPicked = filteredData.pickNames.includes(cleanName);
-    const isLiking = reactionLoading?.id === m.ID && reactionLoading?.type === 'toggle_like';
-    const isDisliking = reactionLoading?.id === m.ID && reactionLoading?.type === 'toggle_dislike';
+    const isLiking = reactionLoading?.id === m.id && reactionLoading?.type === 'toggle_like';
+    const isDisliking = reactionLoading?.id === m.id && reactionLoading?.type === 'toggle_dislike';
+    
     return (
-      <div className="menu-card">{type === 'all' && (<div className="card-top-actions"><button className="btn-mini" onClick={() => openEditModal(m, false)}>✏️ 수정</button><button className="btn-mini danger" onClick={() => { setDeleteTargetId(m.ID); setIsDeleteModalOpen(true); }} disabled={m['삭제요청상태'] === 'Y'}>{m['삭제요청상태'] === 'Y' ? '요청중' : '🗑️ 삭제'}</button></div>)}{m['삭제요청상태'] === 'Y' && <div className="tag-deleted">🚨 삭제 요청 검토 중: {m['삭제요청사유'] || '사유 미상'}</div>}<div className="tag-container"><span className="tag">{CATEGORY_EMOJI[m['카테고리']] || m['카테고리']}</span><span className="tag tag-date">📅 {String(m['추천방문일']).split("T")[0]}</span>{type === 'all' && isPicked && <span className="tag tag-status">🎯 Pick 완료</span>}</div><div style={{fontWeight:'800', color:'var(--text-sub)', marginBottom:'5px', fontSize:'12px'}}>🏠 {m['가게명']}</div><h3>{m['대표메뉴']}</h3><div className="menu-details">📍 {m['가격대']}</div><div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}><a href={m['가게URL']} target="_blank" className="map-link">🗺️ 지도/정보 보기</a>{type === 'pick' ? (<div className="reaction-group"><button className={`like-btn ${likes.includes(session?.pin as string) ? 'liked' : ''}`} onClick={() => toggleReaction(m.ID, 'toggle_like')} disabled={isLiking || isDisliking}>{isLiking ? '⏳' : (likes.includes(session?.pin as string) ? '❤️' : '🤍')} {likes.length}</button><button className={`dislike-btn ${dislikes.includes(session?.pin as string) ? 'liked' : ''}`} onClick={() => toggleReaction(m.ID, 'toggle_dislike')} disabled={isLiking || isDisliking}>{isDisliking ? '⏳' : (dislikes.includes(session?.pin as string) ? '💔' : '👎')} {dislikes.length}</button></div>) : (<span style={{fontSize:'12px', color:'#e74c3c', fontWeight:'800', background:'#e74c3c20', padding:'6px 12px', borderRadius:'12px'}}>❤️ 좋아요 {likes.length}개</span>)}</div>{type === 'all' && (<div style={{display: 'flex', gap: '10px', marginTop: '15px'}}><button className="btn-outline" style={{flex: 2}} onClick={() => openEditModal(m, true)}>🔄 다시 Pick 하기</button><button className="btn-outline" style={{flex: 1, borderColor: 'var(--border)', color: 'var(--text-sub)'}} onClick={() => copyToClipboard(`[맛집 추천] ${m['가게명']}\n🍽️ 메뉴: ${m['대표메뉴']}\n📍 ${m['가게URL']}`)}>📤 공유</button></div>)}</div>
+      <div className="menu-card">{type === 'all' && (<div className="card-top-actions"><button className="btn-mini" onClick={() => openEditModal(m, false)}>✏️ 수정</button><button className="btn-mini danger" onClick={() => { setDeleteTargetId(m.id); setIsDeleteModalOpen(true); }} disabled={isDeleteRequested}>{isDeleteRequested ? '요청중' : '🗑️ 삭제'}</button></div>)}{isDeleteRequested && <div className="tag-deleted">🚨 삭제 요청 검토 중: {m.delete_reason || '사유 미상'}</div>}<div className="tag-container"><span className="tag">{CATEGORY_EMOJI[m.category] || m.category}</span><span className="tag tag-date">📅 {dateStr}</span>{type === 'all' && isPicked && <span className="tag tag-status">🎯 Pick 완료</span>}</div><div style={{fontWeight:'800', color:'var(--text-sub)', marginBottom:'5px', fontSize:'12px'}}>🏠 {m.shop_name}</div><h3>{m.menu_details}</h3><div className="menu-details">📍 {m.price}</div><div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}><a href={m.shop_url} target="_blank" className="map-link">🗺️ 지도/정보 보기</a>{type === 'pick' ? (<div className="reaction-group"><button className={`like-btn ${likes.includes(session?.pin as string) ? 'liked' : ''}`} onClick={() => toggleReaction(m.id, 'toggle_like')} disabled={isLiking || isDisliking}>{isLiking ? '⏳' : (likes.includes(session?.pin as string) ? '❤️' : '🤍')} {likes.length}</button><button className={`dislike-btn ${dislikes.includes(session?.pin as string) ? 'liked' : ''}`} onClick={() => toggleReaction(m.id, 'toggle_dislike')} disabled={isLiking || isDisliking}>{isDisliking ? '⏳' : (dislikes.includes(session?.pin as string) ? '💔' : '👎')} {dislikes.length}</button></div>) : (<span style={{fontSize:'12px', color:'#e74c3c', fontWeight:'800', background:'#e74c3c20', padding:'6px 12px', borderRadius:'12px'}}>❤️ 좋아요 {likes.length}개</span>)}</div>{type === 'all' && (<div style={{display: 'flex', gap: '10px', marginTop: '15px'}}><button className="btn-outline" style={{flex: 2}} onClick={() => openEditModal(m, true)}>🔄 다시 Pick 하기</button><button className="btn-outline" style={{flex: 1, borderColor: 'var(--border)', color: 'var(--text-sub)'}} onClick={() => copyToClipboard(`[맛집 추천] ${m.shop_name}\n🍽️ 메뉴: ${m.menu_details}\n📍 ${m.shop_url}`)}>📤 공유</button></div>)}</div>
     );
   }
 }
