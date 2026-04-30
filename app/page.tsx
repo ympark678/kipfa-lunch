@@ -78,7 +78,7 @@ export default function LunchApp() {
 
   const showToast = (message: string) => {
     setToastMessage(message);
-    setTimeout(() => setToastMessage(null), 4000); // 메시지 표시 시간 늘림
+    setTimeout(() => setToastMessage(null), 4000);
   };
 
   useEffect(() => {
@@ -132,48 +132,65 @@ export default function LunchApp() {
     }
   };
 
-  // ⭐️ 버그 수정 1: CORS 우회 설정 추가 (구글 스크립트 통신 완벽 복구)
+  // ⭐️ 버그 수정 1: PC용 순수 URL 파싱 (GET 방식으로 CORS 완전 우회)
   const fetchShopNameFromServer = async (url: string) => {
-    showToast("🔍 가게 정보 분석 중...");
+    showToast("🔍 웹에서 가게 정보 긁어오는 중...");
     try {
-      const res = await fetch(SCRIPT_URL, { 
-        method: "POST", 
-        headers: { "Content-Type": "text/plain;charset=utf-8" }, // 브라우저 차단 우회
-        body: JSON.stringify({ action: "parse_url", url }) 
+      // POST 대신 GET 방식을 사용하여 브라우저의 보안 차단(CORS)을 피합니다.
+      const encodedUrl = encodeURIComponent(url);
+      const res = await fetch(`${SCRIPT_URL}?action=parse_url&url=${encodedUrl}`, {
+        method: 'GET'
       });
       const result = await res.json();
+      
       if (result.success && result.shopName) {
         setFormData(prev => ({ ...prev, shopName: result.shopName }));
         showToast(`✨ '${result.shopName}' 정보 가져오기 성공!`);
         checkDuplicate('name', result.shopName);
-      } else { showToast("⚠️ 가게 이름을 불러오지 못했습니다."); }
+      } else { 
+        showToast("⚠️ 가게 이름을 불러오지 못했습니다. 직접 입력해 주세요."); 
+      }
     } catch (e) { 
       console.error(e);
-      showToast("⚠️ 네이버 링크 분석 서버 응답 오류"); 
+      showToast("⚠️ 보안 통신 실패. 가게명을 직접 입력해 주세요."); 
     }
   };
 
+  // ⭐️ 버그 수정 2: 스마트 파싱 (줄바꿈이 없어져도 무조건 이름만 빼내는 무적 로직)
   const handleUrlBlur = () => {
     const val = formData.shopUrl;
     if (!val) return;
 
+    // 1. 순수 URL 무조건 찾아내기
     const urlMatch = val.match(/(https?:\/\/[^\s]+)/);
     const cleanUrl = urlMatch ? urlMatch[0] : val;
 
     let newName = formData.shopName;
     let foundLocally = false;
 
-    if (val.includes("[네이버") || val.includes("[카카오맵]")) {
-      const lines = val.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-      if (lines.length >= 2 && lines[0].includes("[네이버")) { newName = lines[1]; foundLocally = true; } 
-      else if (lines.length > 0 && lines[0].includes("[카카오맵]")) { newName = lines[0].replace("[카카오맵]", "").trim(); foundLocally = true; }
+    // 2. 폰에서 복사한 텍스트 덩어리 파싱 (줄바꿈이 띄어쓰기로 변해도 작동함)
+    if (val.includes("네이버 지도") || val.includes("카카오맵")) {
+      // "[네이버 지도]" 같은 꼬리표 떼어내고, URL도 떼어냅니다.
+      let cleanedText = val
+        .replace(/\[?네이버 지도\]?/g, '')
+        .replace(/\[?카카오맵\]?/g, '')
+        .replace(cleanUrl, '')
+        .trim();
+      
+      if (cleanedText) {
+        // 남은 텍스트(보통 가게이름)를 깔끔하게 다듬어서 사용
+        newName = cleanedText.split('\n')[0].trim(); 
+        foundLocally = true;
+      }
     }
 
     setFormData(prev => ({ ...prev, shopUrl: cleanUrl, shopName: foundLocally ? newName : prev.shopName }));
 
+    // 3. 분기 처리 (폰 텍스트면 성공, PC 순수 URL이면 서버로 던지기)
     if (foundLocally) {
-      showToast(`✨ 가게 이름 자동 입력 완료!`); checkDuplicate('name', newName);
-    } else if (!newName && (cleanUrl.includes("naver") || cleanUrl.includes("kakao"))) {
+      showToast(`✨ 가게 이름 자동 추출 성공!`); 
+      checkDuplicate('name', newName);
+    } else if (!newName && cleanUrl.startsWith("http")) {
       fetchShopNameFromServer(cleanUrl);
     }
   };
@@ -250,7 +267,6 @@ export default function LunchApp() {
     setIsModalOpen(true);
   };
 
-  // ⭐️ 버그 수정 2: 에러 발생 시 명확하게 메시지 표시 및 안전한 데이터 처리
   const handleModalSubmit = async () => {
     if (!formData.shopName.trim() || !formData.menu1.trim()) return showToast("⚠️ 가게명, 대표메뉴1을 입력하세요.");
     
@@ -290,7 +306,6 @@ export default function LunchApp() {
         errorResponse = error;
       }
       
-      // 저장이 실패하면 실패 사유를 화면에 띄움
       if (errorResponse) {
         console.error("Supabase Error:", errorResponse);
         return showToast("🚨 DB 에러: " + errorResponse.message);
