@@ -132,14 +132,12 @@ export default function LunchApp() {
     }
   };
 
-  // ⭐️ 서버 통신 5초 컷 (무한 대기 방지)
   const fetchShopNameFromServer = async (url: string) => {
     showToast("🔍 웹에서 가게 정보 긁어오는 중...");
     try {
       const encodedUrl = encodeURIComponent(url);
-      
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5초 타임아웃
+      const timeoutId = setTimeout(() => controller.abort(), 5000); 
 
       const res = await fetch(`${SCRIPT_URL}?action=parse_url&url=${encodedUrl}`, {
         method: 'GET',
@@ -162,7 +160,6 @@ export default function LunchApp() {
     }
   };
 
-  // ⭐️ 초강력 텍스트 분해기 (모바일 텍스트 완벽 분리)
   const handleUrlBlur = () => {
     const val = formData.shopUrl;
     if (!val) return;
@@ -173,18 +170,13 @@ export default function LunchApp() {
     let newName = formData.shopName;
     let foundLocally = false;
 
-    // 1. 전체 텍스트에서 URL 부분을 쏙 빼냅니다.
     let textWithoutUrl = val.replace(cleanUrl, '').trim();
 
-    // 2. 만약 텍스트가 남아있다면 (모바일 복사 등)
     if (textWithoutUrl.length > 0) {
-      // 꼬리표 떼어내기
       textWithoutUrl = textWithoutUrl.replace(/\[?네이버\s*지도\]?/g, '').replace(/\[?카카오맵\]?/g, '').trim();
-
       if (textWithoutUrl.length > 0) {
-        // 주소의 지역명이 나오기 전까지의 글자를 '가게 이름'으로 판단합니다.
         newName = textWithoutUrl.split(/(서울|경기|인천|부산|대구|광주|대전|울산|세종|강원|충북|충남|전북|전남|경북|경남|제주)/)[0].trim();
-        if (!newName) newName = textWithoutUrl; // 혹시 실패하면 남은 텍스트 전체 삽입
+        if (!newName) newName = textWithoutUrl; 
         foundLocally = true;
       }
     }
@@ -195,7 +187,6 @@ export default function LunchApp() {
       showToast(`✨ 텍스트에서 가게 이름 자동 추출 완료!`);
       checkDuplicate('name', newName);
     } else if (!newName && cleanUrl.startsWith("http")) {
-      // 순수 URL만 있는 경우에만 서버에 요청
       fetchShopNameFromServer(cleanUrl);
     }
   };
@@ -206,7 +197,6 @@ export default function LunchApp() {
     setIsLoading(true);
     try {
       const { data, error } = await supabase.from('users').select('name').eq('pin', pin).single();
-      
       if (data) {
         localStorage.setItem("lunchUserPin", pin);
         localStorage.setItem("lunchUserName", data.name);
@@ -227,13 +217,11 @@ export default function LunchApp() {
   const checkDuplicate = (type: 'name' | 'url', value: string) => {
     if (modalMode === 'edit' || modalMode === 'repick') return;
     if (value.trim().length < 2) return;
-    
     const search = value.replace(/\s/g, '');
     const found = menus.find(m => {
       const target = (type === 'name' ? m.shop_name : (m.shop_url || '')).replace(/\s/g, '');
       return target.includes(search) || search.includes(target);
     });
-    
     if (found && confirm(`이미 등록된 맛집인 것 같아요. [${found.shop_name}]\n정보를 불러올까요?`)) {
       fillFormWithData(found); setModalMode('edit'); setEditTargetId(found.id);
     }
@@ -242,7 +230,6 @@ export default function LunchApp() {
   const fillFormWithData = (m: any) => {
     const ms = String(m.menu_details || '').split(', ');
     const ps = String(m.price || '').match(/[\d,]+/g);
-    
     let formattedDate = m.visit_date || dateOptions[0]?.value || "";
     if (formattedDate && formattedDate.includes('.')) formattedDate = formattedDate.replace(/\./g, '-');
 
@@ -274,7 +261,6 @@ export default function LunchApp() {
 
   const handleModalSubmit = async () => {
     if (!formData.shopName.trim() || !formData.menu1.trim()) return showToast("⚠️ 가게명, 대표메뉴1을 입력하세요.");
-    
     const cleanDate = formData.visitDate.replace(/\./g, '-').trim();
 
     const duplicate = menus.find(m => {
@@ -292,15 +278,9 @@ export default function LunchApp() {
     
     try {
       const payload = { 
-        author: session?.name, 
-        visit_date: cleanDate, 
-        category: formData.category, 
-        shop_name: formData.shopName.trim(), 
-        shop_url: cleanUrl.startsWith('http') ? cleanUrl : `https://${cleanUrl}`, 
-        menu_details: combinedMenus, 
-        price: `${formData.priceMin}원 ~ ${formData.priceMax}원`
+        author: session?.name, visit_date: cleanDate, category: formData.category, shop_name: formData.shopName.trim(), 
+        shop_url: cleanUrl.startsWith('http') ? cleanUrl : `https://${cleanUrl}`, menu_details: combinedMenus, price: `${formData.priceMin}원 ~ ${formData.priceMax}원`
       };
-      
       let errorResponse;
 
       if (modalMode === "edit" && editTargetId) {
@@ -318,11 +298,7 @@ export default function LunchApp() {
       
       showToast(modalMode === "edit" ? "✨ 수정 완료!" : "✨ 추천 완료!");
       setIsModalOpen(false); fetchMenus(true);
-    } catch (e: any) { 
-      showToast("🚨 통신 오류: " + e.message); 
-    } finally { 
-      setIsLoading(false); 
-    }
+    } catch (e: any) { showToast("🚨 통신 오류: " + e.message); } finally { setIsLoading(false); }
   };
 
   const submitDeleteRequest = async () => {
@@ -348,14 +324,12 @@ export default function LunchApp() {
       else arr.push(session?.pin as string);
 
       const updateData = isLike ? { likes: arr.join(',') } : { dislikes: arr.join(',') };
-      
       const { error } = await supabase.from('menus').update(updateData).eq('id', id);
       if (error) return showToast("🚨 오류: " + error.message);
 
       fetchMenus(true);
       if (isCancel) showToast(isLike ? "🤍 좋아요가 취소되었습니다." : "👎 싫어요가 취소되었습니다.");
       else showToast(isLike ? "❤️ 좋아요를 눌렀습니다!" : "💔 싫어요를 눌렀습니다.");
-      
     } catch (e) { showToast("🚨 오류 발생"); } finally { setReactionLoading(null); }
   };
 
@@ -374,7 +348,6 @@ export default function LunchApp() {
     
     menus.forEach(m => {
       if (!m.visit_date) return;
-      
       const cleanDateStr = String(m.visit_date).replace(/\./g, '-');
       const d = new Date(`${cleanDateStr}T00:00:00`);
       
@@ -455,6 +428,7 @@ export default function LunchApp() {
 
   return (
     <>
+      {/* ⭐️ 관성 스크롤 복구 및 버튼 찌그러짐 방지 CSS 추가 */}
       <style>{`
         @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
         :root { --bg-main-rgb: 247, 249, 250; --text-main: #2c3e50; --text-sub: #7f8c8d; --card-bg: #ffffff; --border: #e1e5e8; --input-bg: #ffffff; --skeleton-bg: linear-gradient(110deg, #ececec 8%, #f5f5f5 18%, #ececec 33%); --modal-bg: #ffffff; --btn-secondary: #ffffff; --empty-bg: #ffffff; --sticky-top: ${stickyTop}px; }
@@ -471,9 +445,9 @@ export default function LunchApp() {
         .section-title { position: sticky; top: var(--sticky-top); z-index: 80; font-size: 16px; color: var(--text-main); border-bottom: 2px solid #3498db; padding: 15px 20px 10px 20px; margin: 0 -20px 15px -20px; font-weight: 800; letter-spacing: -0.5px; background: rgba(var(--bg-main-rgb), 0.90); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
         .filter-section { position: sticky; top: var(--sticky-top); z-index: 80; padding: 10px 20px; margin: 0 -20px 15px -20px; display: flex; flex-direction: column; gap: 12px; background: rgba(var(--bg-main-rgb), 0.90); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .filter-section.hidden { transform: translateY(-150%); pointer-events: none; }
-        .pill-scroll-container { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: none; }
+        .pill-scroll-container { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
         .pill-scroll-container::-webkit-scrollbar { display: none; }
-        .pill-btn { padding: 8px 16px; border-radius: 30px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-sub); font-weight: 700; font-size: 14px; white-space: nowrap; cursor: pointer; transition: 0.2s; }
+        .pill-btn { flex-shrink: 0; padding: 8px 16px; border-radius: 30px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-sub); font-weight: 700; font-size: 14px; white-space: nowrap; cursor: pointer; transition: 0.2s; }
         .pill-btn.active { background: #3498db; color: white; border-color: #3498db; }
         .btn { background-color: #3498db; color: white; border: none; padding: 14px 20px; font-size: 16px; border-radius: 10px; cursor: pointer; width: 100%; font-weight: 800; transition: 0.2s; box-shadow: 0 4px 6px rgba(52,152,219,0.2); }
         .btn:active { transform: scale(0.96); } .btn:disabled { background-color: #bdc3c7; cursor: not-allowed; box-shadow: none; }
@@ -559,7 +533,13 @@ export default function LunchApp() {
               )}
               {activeTab === 'all' && (
                 <div>
-                  <div className={`filter-section ${isScrollDown ? 'hidden' : ''}`}><div style={{ display: 'flex', gap: '10px' }}><input type="text" className="search-input" placeholder="🔍 맛집 검색..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{flex: 1}} /><select className="category-select" style={{width: '120px'}} value={sortOption} onChange={e => setSortOption(e.target.value as any)}><option value="latest">⏱️ 최신순</option><option value="likes">❤️ 인기순</option></select></div><div className="pill-scroll-container"><button className={`pill-btn ${categoryFilter === 'all' ? 'active' : ''}`} onClick={() => setCategoryFilter('all')}>🏷️ 전체</button>{Object.keys(CATEGORY_EMOJI).map(c => <button key={c} className={`pill-btn ${categoryFilter === c ? 'active' : ''}`} onClick={() => setCategoryFilter(c)}>{CATEGORY_EMOJI[c]}</button>)}</div></div>
+                  <div className={`filter-section ${isScrollDown ? 'hidden' : ''}`}><div style={{ display: 'flex', gap: '10px' }}><input type="text" className="search-input" placeholder="🔍 맛집 검색..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{flex: 1}} /><select className="category-select" style={{width: '120px'}} value={sortOption} onChange={e => setSortOption(e.target.value as any)}><option value="latest">⏱️ 최신순</option><option value="likes">❤️ 인기순</option></select></div>
+                  {/* ⭐️ 터치 충돌 방지 이벤트(e.stopPropagation) 추가 */}
+                  <div className="pill-scroll-container" onTouchStart={e => e.stopPropagation()} onTouchMove={e => e.stopPropagation()}>
+                    <button className={`pill-btn ${categoryFilter === 'all' ? 'active' : ''}`} onClick={() => setCategoryFilter('all')}>🏷️ 전체</button>
+                    {Object.keys(CATEGORY_EMOJI).map(c => <button key={c} className={`pill-btn ${categoryFilter === c ? 'active' : ''}`} onClick={() => setCategoryFilter(c)}>{CATEGORY_EMOJI[c]}</button>)}
+                  </div>
+                  </div>
                   {filteredData.allF.length === 0 ? <div className="empty-state" style={{marginTop: '40px'}}><div className="empty-icon">🔍</div><div className="empty-title">결과가 없습니다.</div></div> : filteredData.allF.map(m => <Card key={m.id} menu={m} type="all" />)}
                 </div>
               )}
