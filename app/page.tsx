@@ -132,15 +132,21 @@ export default function LunchApp() {
     }
   };
 
-  // ⭐️ 버그 수정 1: PC용 순수 URL 파싱 (GET 방식으로 CORS 완전 우회)
+  // ⭐️ 서버 통신 5초 컷 (무한 대기 방지)
   const fetchShopNameFromServer = async (url: string) => {
     showToast("🔍 웹에서 가게 정보 긁어오는 중...");
     try {
-      // POST 대신 GET 방식을 사용하여 브라우저의 보안 차단(CORS)을 피합니다.
       const encodedUrl = encodeURIComponent(url);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5초 타임아웃
+
       const res = await fetch(`${SCRIPT_URL}?action=parse_url&url=${encodedUrl}`, {
-        method: 'GET'
+        method: 'GET',
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
+
       const result = await res.json();
       
       if (result.success && result.shopName) {
@@ -148,49 +154,48 @@ export default function LunchApp() {
         showToast(`✨ '${result.shopName}' 정보 가져오기 성공!`);
         checkDuplicate('name', result.shopName);
       } else { 
-        showToast("⚠️ 가게 이름을 불러오지 못했습니다. 직접 입력해 주세요."); 
+        showToast("⚠️ 네이버 보안 차단: 가게명을 직접 입력해 주세요."); 
       }
     } catch (e) { 
       console.error(e);
-      showToast("⚠️ 보안 통신 실패. 가게명을 직접 입력해 주세요."); 
+      showToast("⚠️ 네이버 보안 차단: 가게명을 직접 입력해 주세요."); 
     }
   };
 
-  // ⭐️ 버그 수정 2: 스마트 파싱 (줄바꿈이 없어져도 무조건 이름만 빼내는 무적 로직)
+  // ⭐️ 초강력 텍스트 분해기 (모바일 텍스트 완벽 분리)
   const handleUrlBlur = () => {
     const val = formData.shopUrl;
     if (!val) return;
 
-    // 1. 순수 URL 무조건 찾아내기
     const urlMatch = val.match(/(https?:\/\/[^\s]+)/);
     const cleanUrl = urlMatch ? urlMatch[0] : val;
 
     let newName = formData.shopName;
     let foundLocally = false;
 
-    // 2. 폰에서 복사한 텍스트 덩어리 파싱 (줄바꿈이 띄어쓰기로 변해도 작동함)
-    if (val.includes("네이버 지도") || val.includes("카카오맵")) {
-      // "[네이버 지도]" 같은 꼬리표 떼어내고, URL도 떼어냅니다.
-      let cleanedText = val
-        .replace(/\[?네이버 지도\]?/g, '')
-        .replace(/\[?카카오맵\]?/g, '')
-        .replace(cleanUrl, '')
-        .trim();
-      
-      if (cleanedText) {
-        // 남은 텍스트(보통 가게이름)를 깔끔하게 다듬어서 사용
-        newName = cleanedText.split('\n')[0].trim(); 
+    // 1. 전체 텍스트에서 URL 부분을 쏙 빼냅니다.
+    let textWithoutUrl = val.replace(cleanUrl, '').trim();
+
+    // 2. 만약 텍스트가 남아있다면 (모바일 복사 등)
+    if (textWithoutUrl.length > 0) {
+      // 꼬리표 떼어내기
+      textWithoutUrl = textWithoutUrl.replace(/\[?네이버\s*지도\]?/g, '').replace(/\[?카카오맵\]?/g, '').trim();
+
+      if (textWithoutUrl.length > 0) {
+        // 주소의 지역명이 나오기 전까지의 글자를 '가게 이름'으로 판단합니다.
+        newName = textWithoutUrl.split(/(서울|경기|인천|부산|대구|광주|대전|울산|세종|강원|충북|충남|전북|전남|경북|경남|제주)/)[0].trim();
+        if (!newName) newName = textWithoutUrl; // 혹시 실패하면 남은 텍스트 전체 삽입
         foundLocally = true;
       }
     }
 
     setFormData(prev => ({ ...prev, shopUrl: cleanUrl, shopName: foundLocally ? newName : prev.shopName }));
 
-    // 3. 분기 처리 (폰 텍스트면 성공, PC 순수 URL이면 서버로 던지기)
     if (foundLocally) {
-      showToast(`✨ 가게 이름 자동 추출 성공!`); 
+      showToast(`✨ 텍스트에서 가게 이름 자동 추출 완료!`);
       checkDuplicate('name', newName);
     } else if (!newName && cleanUrl.startsWith("http")) {
+      // 순수 URL만 있는 경우에만 서버에 요청
       fetchShopNameFromServer(cleanUrl);
     }
   };
