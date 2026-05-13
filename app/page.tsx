@@ -403,17 +403,6 @@ export default function LunchApp() {
       .catch(() => showToast("🚨 복사 실패"));
   };
 
-  const handleMapMarkerClick = (shopId: string) => {
-    const cardElement = document.getElementById(`shop-card-${shopId}`);
-    if (cardElement) {
-      const yOffset = -150;
-      const y = cardElement.getBoundingClientRect().top + window.scrollY + yOffset;
-      window.scrollTo({ top: y, behavior: 'smooth' });
-      setHighlightedCardId(shopId);
-      setTimeout(() => setHighlightedCardId(null), 2000);
-    }
-  };
-
   const handleShowLocationOnMap = (shopName: string) => {
     setIsMapOpen(true);
     setMapTargetShop({ name: shopName, t: Date.now() });
@@ -505,6 +494,7 @@ export default function LunchApp() {
     touchStartY.current = 0;
   };
 
+  // 로그인 화면
   if (!session) return (
     <div className="container" style={{ maxWidth: '400px', margin: '100px auto', textAlign: 'center', padding: '20px' }}>
       <h2 style={{ fontWeight: 900, marginBottom: '30px' }}>🏢 KIPFA 점심 추천</h2>
@@ -546,7 +536,7 @@ export default function LunchApp() {
         body { font-family: 'Pretendard', sans-serif; background: #f8f9fa; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
         .container { max-width: 500px; margin: 0 auto; padding: 20px 20px 100px; }
         
-        .sticky-top-area { position: sticky; top: 0; z-index: 9999; background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); padding: 20px 20px 10px; margin: 0 -20px 15px; border-bottom: 1px solid #eee; }
+        .sticky-top-area { position: sticky; top: 0; z-index: 9999; background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); padding: 20px 20px 10px; margin: 0 -20px 15px; border-bottom: 1px solid #eee; transition: all 0.3s ease; }
         .tabs { display: flex; gap: 8px; margin-bottom: 15px; }
         .tab { flex: 1; padding: 12px; text-align: center; background: #fff; border-radius: 10px; cursor: pointer; font-weight: 800; font-size: 14px; color: #888; border: 1px solid #eee; }
         .tab.active { background: #3498db; color: white; border-color: #3498db; }
@@ -631,7 +621,14 @@ export default function LunchApp() {
               <NaverMap 
                 menus={activeTab === 'pick' ? [...filteredData.tw, ...filteredData.nw] : filteredData.allF} 
                 targetShop={mapTargetShop}
-                onMarkerClick={handleMapMarkerClick}
+                onMarkerClick={(shopId) => {
+                  const el = document.getElementById(`shop-card-${shopId}`);
+                  if (el) {
+                    window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 150, behavior: 'smooth' });
+                    setHighlightedCardId(shopId); 
+                    setTimeout(() => setHighlightedCardId(null), 2000);
+                  }
+                }}
               />
             </div>
           )}
@@ -682,7 +679,6 @@ export default function LunchApp() {
       )}
       <button onClick={openAddModal} style={{ position: 'fixed', bottom: '30px', right: '20px', width: '56px', height: '56px', borderRadius: '50%', background: '#3498db', color: 'white', border: 'none', fontSize: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', zIndex: 9998 }}>＋</button>
 
-      {/* 모달 창들 */}
       {isRouletteOpen && (
         <div className="modal" onClick={() => !isSpinning && setIsRouletteOpen(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ textAlign: 'center' }}>
@@ -775,8 +771,10 @@ export default function LunchApp() {
   function Card({ menu: m, type }: { menu: any, type: string }) {
     const likes = String(m.likes || '').split(',').filter(Boolean);
     const dislikes = String(m.dislikes || '').split(',').filter(Boolean);
-    const isLiked = likes.includes(session?.pin);
-    const isDisliked = dislikes.includes(session?.pin);
+    
+    // ✨ TypeScript 에러 방지용 || "" 추가 완료
+    const isLiked = likes.includes(session?.pin || "");
+    const isDisliked = dislikes.includes(session?.pin || "");
 
     return (
       <div 
@@ -800,9 +798,12 @@ export default function LunchApp() {
         <p style={{ margin: 0, color: '#555', fontSize: '14px', fontWeight: 600 }}>{m.menu_details}</p>
         
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '15px' }}>
-          {/* ✨ 절대 깨지지 않는 순수 CSS 네이버 로고 박스 */}
-          <a href={m.shop_url} target="_blank" onClick={e => e.stopPropagation()} className="naver-map-btn">
-            <span style={{ background: '#03C75A', color: 'white', padding: '2px 5px', borderRadius: '4px', fontWeight: 900, fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>N</span>
+          
+          <a href={`https://map.naver.com/p/search/${encodeURIComponent(m.shop_name)}`} target="_blank" onClick={e => e.stopPropagation()} className="naver-map-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M16.0718 0H7.92817C3.54921 0 0 3.54921 0 7.92817V16.0718C0 20.4508 3.54921 24 7.92817 24H16.0718C20.4508 24 24 20.4508 24 16.0718V7.92817C24 3.54921 20.4508 0 16.0718 0Z" fill="#03C75A"/>
+              <path d="M16.9242 17.5255H13.6702L9.42152 11.2335V17.5255H6.38818V6.47449H9.64219L13.8909 12.7665V6.47449H16.9242V17.5255Z" fill="white"/>
+            </svg>
             네이버 지도
           </a>
 
