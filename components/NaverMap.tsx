@@ -22,11 +22,28 @@ export default function NaverMap({
   const mapRef = useRef<any>(null);
   const markersRef = useRef<{ [key: string]: any }>({});
   const infoWindowsRef = useRef<{ [key: string]: any }>({});
+  
+  // ✨ 지도가 늦게 켜져도 타겟 가게를 잊지 않도록 기억해두는 메모리!
+  const targetShopRef = useRef(targetShopName);
+
+  useEffect(() => {
+    targetShopRef.current = targetShopName;
+    // 만약 지도가 이미 켜져있는 상태에서 버튼을 누르면 즉시 이동!
+    if (targetShopName && mapRef.current && markersRef.current[targetShopName]) {
+      const targetMarker = markersRef.current[targetShopName];
+      mapRef.current.panTo(targetMarker.getPosition());
+      
+      Object.values(infoWindowsRef.current).forEach((iw: any) => iw.close());
+      if (infoWindowsRef.current[targetShopName]) {
+        infoWindowsRef.current[targetShopName].open(mapRef.current, targetMarker);
+      }
+    }
+  }, [targetShopName]);
 
   const initMap = () => {
     if (!window.naver || !window.naver.maps) return;
 
-    // ✨ 1. 기본 위치를 시청이 아닌 KIPFA 근처(송파구)로 고정하여 깜빡임 방지!
+    // 초기 화면 시청으로 튀는 현상 방지를 위해 잠실/송파 부근을 기본 중심점으로 설정
     const initialLocation = new window.naver.maps.LatLng(37.5147, 127.1042);
     
     const mapOptions = {
@@ -45,8 +62,8 @@ export default function NaverMap({
             const item = response.v2.addresses[0];
             const companyLocation = new window.naver.maps.Point(item.x, item.y);
             
-            // 만약 밖에서 특정 가게를 지목하지 않았을 때만 회사 위치를 중심으로 잡습니다.
-            if (!targetShopName) {
+            // 위치보기 버튼으로 지도를 연 게 아닐 때만 회사 위치를 중심으로 잡습니다.
+            if (!targetShopRef.current) {
               mapRef.current.setCenter(companyLocation);
             }
             
@@ -88,12 +105,12 @@ export default function NaverMap({
           title: menu.shop_name
         });
 
-        // ✨ 길찾기 링크도 모바일 경로 안내 링크로 안정화했습니다.
+        // ✨ 팝업창 길찾기 링크도 '모바일 네이버 지도 앱' 다이렉트 호출용으로 변경
         const infoWindow = new window.naver.maps.InfoWindow({
           content: `<div style="padding:15px; min-width:180px; font-family: Pretendard, sans-serif; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border-radius: 12px; background: white; border: 1px solid #eee;">
                        <div style="font-weight:900; font-size: 15px; margin-bottom: 4px; color: #333;">${menu.shop_name}</div>
                        <div style="font-size: 12px; color: #666; margin-bottom: 10px; word-break: keep-all;">${menu.menu_details || '상세 정보 없음'}</div>
-                       <a href="https://m.map.naver.com/route.nhn?menu=route&ename=${encodeURIComponent(menu.shop_name)}" target="_blank" style="display: block; text-align: center; padding: 8px 0; background: #2ecc71; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 12px;">🧭 길찾기</a>
+                       <a href="nmap://route/walk?dname=${encodeURIComponent(menu.shop_name)}&appname=KIPFA" style="display: block; text-align: center; padding: 8px 0; background: #2ecc71; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 12px;">🧭 앱으로 길찾기</a>
                     </div>`,
           borderWidth: 0,
           disableAnchor: true,
@@ -110,9 +127,10 @@ export default function NaverMap({
         markersRef.current[menu.shop_name] = marker;
         infoWindowsRef.current[menu.shop_name] = infoWindow;
 
-        // ✨ 핵심: 마커가 그려지는 순간, 만약 이 마커가 타겟 샵이면 즉시 화면을 이동시킵니다!
-        if (targetShopName === menu.shop_name) {
-          mapRef.current.setCenter(point);
+        // ✨ 지도가 늦게 켜졌을 때: 마커가 준비되자마자 즉시 타겟으로 이동시킵니다!
+        if (targetShopRef.current === menu.shop_name) {
+          mapRef.current.panTo(point);
+          Object.values(infoWindowsRef.current).forEach((iw: any) => iw.close());
           infoWindow.open(mapRef.current, marker);
         }
       });
@@ -123,20 +141,8 @@ export default function NaverMap({
     renderMarkers();
   }, [menus]);
 
-  useEffect(() => {
-    if (targetShopName && mapRef.current && markersRef.current[targetShopName]) {
-      const targetMarker = markersRef.current[targetShopName];
-      const targetInfoWindow = infoWindowsRef.current[targetShopName];
-      
-      mapRef.current.panTo(targetMarker.getPosition());
-      
-      Object.values(infoWindowsRef.current).forEach((iw: any) => iw.close());
-      targetInfoWindow.open(mapRef.current, targetMarker);
-    }
-  }, [targetShopName]);
-
   return (
-    <div className="w-full flex flex-col items-center my-2">
+    <div className="w-full flex flex-col items-center my-2" style={{ position: 'relative', zIndex: 10 }}>
       <Script
         strategy="afterInteractive"
         type="text/javascript"
@@ -145,7 +151,7 @@ export default function NaverMap({
       />
       <div
         ref={mapElement}
-        style={{ width: '100%', height: '300px', borderRadius: '16px', overflow: 'hidden', border: '1px solid #e1e5e8', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)' }}
+        style={{ width: '100%', height: '300px', borderRadius: '16px', overflow: 'hidden', border: '1px solid #e1e5e8', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)', position: 'relative', zIndex: 10 }}
       />
     </div>
   );
