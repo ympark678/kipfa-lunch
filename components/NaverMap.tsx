@@ -56,8 +56,8 @@ export default function NaverMap({
   const initMap = () => {
     if (!window.naver || !window.naver.maps) return;
 
-    // ✨ 캡처해주신 녹색 점 위치(대한제당 부근)의 정확한 GPS 좌표로 변경 완료!
-    const officeLocation = new window.naver.maps.LatLng(37.514750, 127.102900);
+    // ✨ 캡처해주신 녹색 점(신천근린공원 하단) 위치로 GPS 좌표 초정밀 조정!
+    const officeLocation = new window.naver.maps.LatLng(37.515250, 127.102250);
     
     const mapOptions = {
       center: officeLocation,
