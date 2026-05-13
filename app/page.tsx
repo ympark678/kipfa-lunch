@@ -8,8 +8,6 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzRoJPOYW8FB1Ck69hOl56aluBxNDjUAPewlsTEgIvK39y6hShhx4SU6K2enx0R29NLAQ/exec";
-
 const CATEGORY_EMOJI: Record<string, string> = {
   "한식": "🍚 한식", "중식": "🥢 중식", "일식": "🍣 일식", "양식": "🍝 양식", "분식": "🥘 분식", "기타": "🍽️ 기타"
 };
@@ -59,9 +57,10 @@ export default function LunchApp() {
   const [mapTargetShop, setMapTargetShop] = useState<{name: string, t: number} | null>(null);
   const [highlightedCardId, setHighlightedCardId] = useState<string | null>(null);
 
+  // ✨ 가격대와 URL이 삭제된 초슬림 폼 데이터
   const [formData, setFormData] = useState({
     visitDate: "", category: "한식", shopName: "", shopUrl: "", address: "", road_address: "",
-    menu1: "", menu2: "", menu3: "", priceMin: "9,000", priceMax: "15,000"
+    menu1: "", menu2: "", menu3: ""
   });
 
   const [isRouletteOpen, setIsRouletteOpen] = useState(false);
@@ -88,15 +87,9 @@ export default function LunchApp() {
     }).filter(Boolean) as {label: string, value: string}[];
   }, []);
 
-  const priceOptions = useMemo(() => {
-    const opts = [];
-    for (let i = 500; i <= 50000; i += 500) opts.push(i.toLocaleString());
-    return opts;
-  }, []);
-
   const showToast = (message: string) => {
     setToastMessage(message);
-    setTimeout(() => setToastMessage(null), 4000);
+    setTimeout(() => setToastMessage(null), 3500);
   };
 
   useEffect(() => {
@@ -187,68 +180,8 @@ export default function LunchApp() {
     checkDuplicate('name', cleanTitle);
   };
 
-  const fetchShopNameFromServer = async (url: string) => {
-    showToast("🔍 웹에서 가게 정보 긁어오는 중...");
-    try {
-      const encodedUrl = encodeURIComponent(url);
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); 
-
-      const res = await fetch(`${SCRIPT_URL}?action=parse_url&url=${encodedUrl}`, {
-        method: 'GET',
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-
-      const result = await res.json();
-      
-      if (result.success && result.shopName) {
-        setFormData(prev => ({ ...prev, shopName: result.shopName }));
-        showToast(`✨ '${result.shopName}' 정보 가져오기 성공!`);
-        checkDuplicate('name', result.shopName);
-      } else { 
-        showToast("⚠️ 네이버 보안 차단: 가게명을 직접 입력해 주세요."); 
-      }
-    } catch (e) { 
-      console.error(e);
-      showToast("⚠️ 네이버 보안 차단: 가게명을 직접 입력해 주세요."); 
-    }
-  };
-
-  const handleUrlBlur = () => {
-    const val = formData.shopUrl;
-    if (!val) return;
-
-    const urlMatch = val.match(/(https?:\/\/[^\s]+)/);
-    const cleanUrl = urlMatch ? urlMatch[0] : val;
-
-    let newName = formData.shopName;
-    let foundLocally = false;
-
-    let textWithoutUrl = val.replace(cleanUrl, '').trim();
-
-    if (textWithoutUrl.length > 0) {
-      textWithoutUrl = textWithoutUrl.replace(/\[?네이버\s*지도\]?/g, '').replace(/\[?카카오맵\]?/g, '').trim();
-      if (textWithoutUrl.length > 0) {
-        newName = textWithoutUrl.split(/(서울|경기|인천|부산|대구|광주|대전|울산|세종|강원|충북|충남|전북|전남|경북|경남|제주)/)[0].trim();
-        if (!newName) newName = textWithoutUrl; 
-        foundLocally = true;
-      }
-    }
-
-    setFormData(prev => ({ ...prev, shopUrl: cleanUrl, shopName: foundLocally ? newName : prev.shopName }));
-
-    if (foundLocally) {
-      showToast(`✨ 텍스트에서 가게 이름 자동 추출 완료!`);
-      checkDuplicate('name', newName);
-    } else if (!newName && cleanUrl.startsWith("http")) {
-      fetchShopNameFromServer(cleanUrl);
-    }
-  };
-
   const handleLogin = async () => {
     if (pin.length !== 4) return showToast("⚠️ 4자리 번호를 입력해주세요.");
-    
     setIsLoading(true);
     try {
       const { data, error } = await supabase.from('users').select('name').eq('pin', pin).single();
@@ -284,21 +217,19 @@ export default function LunchApp() {
 
   const fillFormWithData = (m: any) => {
     const ms = String(m.menu_details || '').split(', ');
-    const ps = String(m.price || '').match(/[\d,]+/g);
     let formattedDate = m.visit_date || dateOptions[0]?.value || "";
     if (formattedDate && formattedDate.includes('.')) formattedDate = formattedDate.replace(/\./g, '-');
 
     setFormData(prev => ({
       ...prev, category: m.category || '한식', shopName: m.shop_name || '', shopUrl: m.shop_url || '',
       visitDate: formattedDate, address: m.address || '', road_address: m.road_address || '',
-      menu1: ms[0] || '', menu2: ms[1] || '', menu3: ms[2] || '',
-      priceMin: (ps && ps[0]) ? ps[0] : "9,000", priceMax: (ps && ps[1]) ? ps[1] : "15,000"
+      menu1: ms[0] || '', menu2: ms[1] || '', menu3: ms[2] || ''
     }));
   };
 
   const openAddModal = () => {
     setModalMode("add"); setEditTargetId(null);
-    setFormData({ visitDate: dateOptions[0]?.value || "", category: "한식", shopName: "", shopUrl: "", address: "", road_address: "", menu1: "", menu2: "", menu3: "", priceMin: "9,000", priceMax: "15,000" });
+    setFormData({ visitDate: dateOptions[0]?.value || "", category: "한식", shopName: "", shopUrl: "", address: "", road_address: "", menu1: "", menu2: "", menu3: "" });
     setIsModalOpen(true);
   };
 
@@ -327,30 +258,21 @@ export default function LunchApp() {
     if (duplicate) return showToast(`🚨 이미 ${cleanDate}에 등록된 맛집입니다!`);
 
     setIsLoading(true);
-    const urlMatch = formData.shopUrl.match(/(https?:\/\/[^\s]+)/);
-    const cleanUrl = urlMatch ? urlMatch[1] : formData.shopUrl;
     const combinedMenus = [formData.menu1, formData.menu2, formData.menu3].filter(Boolean).join(", ");
+    const autoUrl = formData.shopUrl || `https://map.naver.com/v5/search/${encodeURIComponent(formData.shopName)}`;
     
     try {
       const payload = { 
         author: session?.name, visit_date: cleanDate, category: formData.category, shop_name: formData.shopName.trim(), 
-        shop_url: cleanUrl.startsWith('http') ? cleanUrl : `https://${cleanUrl}`, 
-        menu_details: combinedMenus, price: `${formData.priceMin}원 ~ ${formData.priceMax}원`,
+        shop_url: autoUrl, 
+        menu_details: combinedMenus, price: "", // 가격 필드 제거됨
         address: formData.address, road_address: formData.road_address
       };
-      let errorResponse;
 
       if (modalMode === "edit" && editTargetId) {
-        const { error } = await supabase.from('menus').update(payload).eq('id', editTargetId);
-        errorResponse = error;
+        await supabase.from('menus').update(payload).eq('id', editTargetId);
       } else {
-        const { error } = await supabase.from('menus').insert([payload]);
-        errorResponse = error;
-      }
-      
-      if (errorResponse) {
-        console.error("Supabase Error:", errorResponse);
-        return showToast("🚨 DB 에러: " + errorResponse.message);
+        await supabase.from('menus').insert([payload]);
       }
       
       showToast(modalMode === "edit" ? "✨ 수정 완료!" : "✨ 추천 완료!");
@@ -381,8 +303,7 @@ export default function LunchApp() {
       else arr.push(session?.pin as string);
 
       const updateData = isLike ? { likes: arr.join(',') } : { dislikes: arr.join(',') };
-      const { error } = await supabase.from('menus').update(updateData).eq('id', id);
-      if (error) return showToast("🚨 오류: " + error.message);
+      await supabase.from('menus').update(updateData).eq('id', id);
 
       fetchMenus(true);
     } catch (e) { showToast("🚨 오류 발생"); } finally { setReactionLoading(null); }
@@ -403,6 +324,7 @@ export default function LunchApp() {
     }
   };
 
+  // ✨ 카드 전체를 눌렀을 때, 무조건 화면 최상단으로 슉! 올라가며 지도 오픈
   const handleShowLocationOnMap = (shopName: string) => {
     setIsMapOpen(true); 
     setMapTargetShop({ name: shopName, t: Date.now() }); 
@@ -487,7 +409,7 @@ export default function LunchApp() {
         .pin-input:focus { border-color: #3498db; box-shadow: 0 0 0 4px rgba(52,152,219,0.1); }
         .btn { background-color: #3498db; color: white; border: none; padding: 14px 20px; font-size: 16px; border-radius: 10px; cursor: pointer; width: 100%; font-weight: 800; transition: 0.2s; box-shadow: 0 4px 6px rgba(52,152,219,0.2); } 
         .btn:active { transform: scale(0.96); } 
-        .toast { position: fixed; top: 40px; left: 50%; transform: translateX(-50%); background: #3498db; color: white; padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 10000; animation: slideDown 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); white-space: nowrap; }
+        .toast { position: fixed; top: 40px; left: 50%; transform: translateX(-50%); background: #2c3e50; color: white; padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 10000; animation: slideDown 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); white-space: nowrap; }
         @keyframes slideDown { from { top: -20px; opacity: 0; } to { top: 40px; opacity: 1; } }
       `}</style>
       {toastMessage && <div className="toast">{toastMessage}</div>}
@@ -539,7 +461,7 @@ export default function LunchApp() {
         .search-input, .category-select { width: 100%; padding: 14px; border-radius: 12px; border: 1px solid var(--border); box-sizing: border-box; font-size: 14px; font-weight: 600; background: var(--input-bg); color: var(--text-main); outline: none; transition: 0.3s; }
         .search-input:focus, .category-select:focus { border-color: #3498db; box-shadow: 0 0 0 3px rgba(52,152,219,0.1); }
         
-        .menu-card { background: var(--card-bg); padding: 20px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.04); margin-bottom: 18px; border: 1px solid var(--border); position: relative; transition: all 0.3s ease; cursor: pointer; }
+        .menu-card { background: var(--card-bg); padding: 20px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.04); margin-bottom: 18px; border: 1px solid var(--border); position: relative; transition: all 0.3s ease; cursor: pointer; -webkit-tap-highlight-color: transparent; }
         .menu-card.highlight { border-color: #3498db; box-shadow: 0 0 15px rgba(52,152,219,0.4); transform: scale(1.02); }
         .menu-card:active { transform: scale(0.98); opacity: 0.9; }
         
@@ -553,11 +475,12 @@ export default function LunchApp() {
         .tag-date { background: #f08c0020; color: #f08c00; border: 1px solid #f08c0040;}
         .tag-status { background: #3498db20; color: #3498db; border: 1px solid #3498db40; } 
         .tag-deleted { background: #e74c3c20; color: #e74c3c; width: 100%; text-align: center; margin-bottom: 12px; font-size: 13px; padding: 8px; border-radius: 8px; font-weight: 800; box-sizing: border-box; }
-        .menu-details { font-size: 13px; color: var(--text-sub); line-height: 1.6; margin-bottom: 15px; background: rgb(var(--bg-main-rgb)); padding: 12px; border-radius: 10px; font-weight: 600; }
+        .menu-details { font-size: 14px; color: var(--text-sub); line-height: 1.6; font-weight: 600; margin-bottom: 15px; }
         
+        /* ✨ 슬림해진 좋아요/싫어요 알약 디자인 */
         .reaction-group { display: flex; gap: 8px; }
-        .like-btn, .dislike-btn { background: #f8f9fa; color: #495057; border: 1px solid #e9ecef; padding: 6px 14px; border-radius: 20px; cursor: pointer; font-weight: 800; display: inline-flex; flex-direction: row; align-items: center; justify-content: center; gap: 6px; font-size: 13px; transition: all 0.2s ease; white-space: nowrap; }
-        .like-btn.liked { background: #e3f2fd; color: #228be6; border-color: #d0ebff; animation: heartPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .like-btn, .dislike-btn { background: #f8f9fa; color: #495057; border: 1px solid #e9ecef; padding: 6px 14px; border-radius: 20px; cursor: pointer; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; font-size: 14px; transition: 0.2s; }
+        .like-btn.liked { background: #e3f2fd; color: #228be6; border-color: #d0ebff; animation: heartPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); } 
         .dislike-btn.liked { background: #ffe3e3; color: #fa5252; border-color: #ffc9c9; animation: heartPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .like-btn:disabled, .dislike-btn:disabled { opacity: 0.6; cursor: wait; }
         @keyframes heartPop { 0% { transform: scale(0.9); } 50% { transform: scale(1.15); } 100% { transform: scale(1); } }
@@ -581,7 +504,7 @@ export default function LunchApp() {
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .skeleton { background: var(--border); background: var(--skeleton-bg); border-radius: 5px; background-size: 200% 100%; animation: 1.5s shine linear infinite; }
         .skeleton-card { background: var(--card-bg); padding: 20px; border-radius: 16px; border: 1px solid var(--border); margin-bottom: 18px; }
-        .toast { position: fixed; top: 40px; left: 50%; transform: translateX(-50%); background: #3498db; color: white; padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 10000; animation: slideDown 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); white-space: nowrap; }
+        .toast { position: fixed; top: 40px; left: 50%; transform: translateX(-50%); background: #2c3e50; color: white; padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 10000; animation: slideDown 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); white-space: nowrap; }
         .empty-state { text-align: center; padding: 50px 20px; background: var(--empty-bg); border-radius: 20px; border: 2px dashed var(--border); margin: 20px 0; animation: fadeIn 0.5s ease-out; }
         .empty-icon { font-size: 60px; margin-bottom: 15px; animation: float 3s ease-in-out infinite; }
         .empty-title { font-size: 18px; font-weight: 900; color: var(--text-main); margin-bottom: 8px; }
@@ -697,10 +620,6 @@ export default function LunchApp() {
               <input type="text" placeholder="메뉴 2 (선택)" style={{marginBottom:'8px'}} value={formData.menu2} onChange={e => setFormData({...formData, menu2: e.target.value})} />
               <input type="text" placeholder="메뉴 3 (선택)" value={formData.menu3} onChange={e => setFormData({...formData, menu3: e.target.value})} />
             </div>
-
-            <div className="form-group"><label>가격대</label><div style={{display:'flex', alignItems:'center', gap:'8px'}}><select value={formData.priceMin} onChange={e => setFormData({...formData, priceMin: e.target.value})}>{priceOptions.map(p => <option key={p} value={p}>{p}</option>)}</select><span style={{fontSize:'13px', fontWeight:'800', color:'var(--text-sub)'}}>부터</span><select value={formData.priceMax} onChange={e => setFormData({...formData, priceMax: e.target.value})}>{priceOptions.map(p => <option key={p} value={p}>{p}</option>)}</select><span style={{fontSize:'13px', fontWeight:'800', color:'var(--text-sub)'}}>까지</span></div></div>
-            
-            <div className="form-group"><label>지도 URL (선택사항)</label><input type="text" placeholder="네이버 지도 링크" value={formData.shopUrl} onChange={e => setFormData({...formData, shopUrl: e.target.value})} onBlur={handleUrlBlur} /></div>
             
             <button className="btn" onClick={handleModalSubmit} style={{marginTop:'20px'}}>{modalMode === 'edit' ? '수정 완료' : '추천 완료'}</button>
             <button className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>닫기</button>
@@ -733,33 +652,23 @@ export default function LunchApp() {
       >
         {type === 'all' && (<div className="card-top-actions"><button className="btn-mini" onClick={(e) => { e.stopPropagation(); openEditModal(m, false); }}>✏️ 수정</button><button className="btn-mini danger" onClick={(e) => { e.stopPropagation(); setDeleteTargetId(m.id); setIsDeleteModalOpen(true); }} disabled={isDeleteRequested}>{isDeleteRequested ? '요청중' : '🗑️ 삭제'}</button></div>)}{isDeleteRequested && <div className="tag-deleted">🚨 삭제 요청 검토 중: {m.delete_reason || '사유 미상'}</div>}<div className="tag-container"><span className="tag">{CATEGORY_EMOJI[m.category] || m.category}</span><span className="tag tag-date">📅 {dateStr}</span>{type === 'all' && isPicked && <span className="tag tag-status">🎯 Pick 완료</span>}</div>
         
-        <div style={{fontWeight: 'bold', fontSize: '12px', color: '#999'}}>🏠 {m.shop_name}</div>
+        <h3 style={{marginTop: '8px'}}>{m.shop_name}</h3>
         
-        <h3 style={{margin: '5px 0 15px'}}>{m.menu_details}</h3>
-        <div className="menu-details">📍 {m.price}</div>
-        
-        <div style={{display:'flex', gap: '6px', marginBottom: '15px', marginTop: '10px'}}>
-          <a href={`https://map.naver.com/p/search/${encodeURIComponent(m.shop_name)}`} target="_blank" onClick={(e) => e.stopPropagation()} style={{flex: 1, textAlign: 'center', background: 'var(--bg-main-rgb)', color: 'var(--text-main)', border: '1px solid var(--border)', padding: '8px', borderRadius: '8px', fontWeight: '800', fontSize: '12px', textDecoration: 'none'}}>🗺️ 네이버 지도</a>
-          <button onClick={(e) => { e.stopPropagation(); handleShowLocationOnMap(m.shop_name); }} style={{flex: 1, textAlign: 'center', background: '#3498db15', color: '#3498db', border: '1px solid #3498db40', padding: '8px', borderRadius: '8px', fontWeight: '800', fontSize: '12px', cursor: 'pointer'}}>📍 지도 위치</button>
-        </div>
+        {m.menu_details && <div className="menu-details">{m.menu_details}</div>}
         
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-          <div style={{fontSize: '12px', color: 'var(--text-sub)', fontWeight: '600'}}>📍 {m.address || '주소 정보 없음'}</div>
-          {type === 'pick' ? (
-            <div className="reaction-group">
-              <button className={`like-btn ${likes.includes(session?.pin as string) ? 'liked' : ''}`} onClick={(e) => { e.stopPropagation(); toggleReaction(m.id, 'toggle_like'); }} disabled={isLiking || isDisliking}>
-                👍 {likes.length}
-              </button>
-              <button className={`dislike-btn ${dislikes.includes(session?.pin as string) ? 'liked' : ''}`} onClick={(e) => { e.stopPropagation(); toggleReaction(m.id, 'toggle_dislike'); }} disabled={isLiking || isDisliking}>
-                👎 {dislikes.length}
-              </button>
-            </div>
-          ) : (
-            <div className="reaction-group">
-              <span className="like-btn" style={{cursor: 'default'}}>👍 {likes.length}</span>
-              <span className="dislike-btn" style={{cursor: 'default'}}>👎 {dislikes.length}</span>
-            </div>
-          )}
+          <a href={`https://map.naver.com/p/search/${encodeURIComponent(m.shop_name)}`} target="_blank" onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'var(--bg-main-rgb)', color: 'var(--text-main)', border: '1px solid var(--border)', padding: '8px 12px', borderRadius: '10px', fontWeight: '800', fontSize: '13px', textDecoration: 'none' }}>
+            <img src="https://map.naver.com/v5/favicon.ico" width="14" height="14" alt="naver" /> 네이버 지도
+          </a>
+          
+          <div className="reaction-group">
+            <button className={`like-btn ${likes.includes(session?.pin as string) ? 'liked' : ''}`} onClick={(e) => { e.stopPropagation(); toggleReaction(m.id, 'toggle_like'); }} disabled={isLiking || isDisliking}>
+              👍 {likes.length}
+            </button>
+            <button className={`dislike-btn ${dislikes.includes(session?.pin as string) ? 'liked' : ''}`} onClick={(e) => { e.stopPropagation(); toggleReaction(m.id, 'toggle_dislike'); }} disabled={isLiking || isDisliking}>
+              👎 {dislikes.length}
+            </button>
+          </div>
         </div>
         
         {type === 'all' && (<div style={{display: 'flex', gap: '10px', marginTop: '15px'}}><button className="btn-outline" style={{flex: 2}} onClick={(e) => { e.stopPropagation(); openEditModal(m, true); }}>🔄 다시 Pick 하기</button><button className="btn-outline" style={{flex: 1, borderColor: 'var(--border)', color: 'var(--text-sub)'}} onClick={(e) => { e.stopPropagation(); copyToClipboard(`[맛집 추천] ${m.shop_name}\n📍 ${m.shop_url}`); }}>📤 공유</button></div>)}
