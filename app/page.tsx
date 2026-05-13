@@ -489,8 +489,8 @@ export default function LunchApp() {
         .pin-input:focus { border-color: #3498db; box-shadow: 0 0 0 4px rgba(52,152,219,0.1); }
         .btn { background-color: #3498db; color: white; border: none; padding: 14px 20px; font-size: 16px; border-radius: 10px; cursor: pointer; width: 100%; font-weight: 800; transition: 0.2s; box-shadow: 0 4px 6px rgba(52,152,219,0.2); } 
         .btn:active { transform: scale(0.96); } 
-        .toast { position: fixed; top: 40px; left: 50%; transform: translateX(-50%); background: #3498db; color: white; padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 10000; animation: slideDown 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); white-space: nowrap; }
-        @keyframes slideDown { from { top: -20px; opacity: 0; } to { top: 40px; opacity: 1; } }
+        .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #3498db; color: white; padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 10000; animation: slideUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes slideUp { from { bottom: -50px; opacity: 0; } to { bottom: 30px; opacity: 1; } }
       `}</style>
       {toastMessage && <div className="toast">{toastMessage}</div>}
       <div className="container">
@@ -556,12 +556,19 @@ export default function LunchApp() {
         .tag-status { background: #3498db20; color: #3498db; border: 1px solid #3498db40; } 
         .tag-deleted { background: #e74c3c20; color: #e74c3c; width: 100%; text-align: center; margin-bottom: 12px; font-size: 13px; padding: 8px; border-radius: 8px; font-weight: 800; box-sizing: border-box; }
         .menu-details { font-size: 13px; color: var(--text-sub); line-height: 1.6; margin-bottom: 15px; background: rgb(var(--bg-main-rgb)); padding: 12px; border-radius: 10px; font-weight: 600; }
+        
+        /* ✨ 좋아요/싫어요 알약(Pill) 디자인 전면 개편 */
         .reaction-group { display: flex; gap: 8px; }
-        @keyframes heartPop { 0% { transform: scale(0.9); } 50% { transform: scale(1.15); } 100% { transform: scale(1); } }
-        .like-btn, .dislike-btn { background: var(--card-bg); color: var(--text-main); border: 1px solid var(--border); padding: 6px 12px; border-radius: 20px; cursor: pointer; font-weight: 800; display: flex; align-items: center; gap: 4px; font-size: 13px; transition: all 0.2s; }
-        .like-btn.liked { background: #fa5252; color: white; border-color: #fa5252; animation: heartPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); } 
-        .dislike-btn.liked { background: var(--text-sub); color: white; border-color: var(--text-sub); animation: heartPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        .like-btn:disabled, .dislike-btn:disabled { opacity: 0.6; cursor: wait; transform: none; }
+        .like-btn, .dislike-btn { 
+          background: #f8f9fa; color: #495057; border: 1px solid #e9ecef; 
+          padding: 6px 14px; border-radius: 20px; cursor: pointer; font-weight: 800; 
+          display: inline-flex; flex-direction: row; align-items: center; justify-content: center; 
+          gap: 6px; font-size: 13px; transition: all 0.2s ease; white-space: nowrap; 
+        }
+        .like-btn.liked { background: #ffe3e3; color: #fa5252; border-color: #ffc9c9; }
+        .dislike-btn.liked { background: #e9ecef; color: #495057; border-color: #dee2e6; }
+        .like-btn:disabled, .dislike-btn:disabled { opacity: 0.6; cursor: wait; }
+        
         .btn-outline { width: 100%; background: var(--card-bg); padding: 12px; font-size: 14px; font-weight: 800; border-radius: 10px; cursor: pointer; border: 1px solid #3498db; color: #3498db; margin-top: 15px; transition: 0.2s; }
         .btn-outline:active { background: #3498db20; transform: scale(0.98); }
         .fab-container { position: fixed; bottom: 25px; right: 25px; display: flex; flex-direction: column; gap: 12px; z-index: 9999; align-items: flex-end; }
@@ -588,7 +595,6 @@ export default function LunchApp() {
         .empty-desc { font-size: 14px; color: var(--text-sub); font-weight: 500; line-height: 1.5; }
         @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0px); } }
         
-        /* ✨ 하단 중앙 플로팅 지도 토글 버튼 CSS */
         .map-floating-toggle { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #2c3e50; color: white; border: none; padding: 14px 28px; border-radius: 30px; font-weight: 800; font-size: 15px; box-shadow: 0 6px 20px rgba(0,0,0,0.25); z-index: 9999; cursor: pointer; transition: 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; align-items: center; gap: 8px; white-space: nowrap; }
         .map-floating-toggle:active { transform: translateX(-50%) scale(0.95); }
         .map-floating-toggle.open { background: white; color: #2c3e50; border: 2px solid #2c3e50; }
@@ -596,7 +602,6 @@ export default function LunchApp() {
 
       {toastMessage && <div className="toast">{toastMessage}</div>}
       
-      {/* ✨ 에어비앤비 스타일 지도 토글 플로팅 버튼! */}
       {session && (
         <button 
           className={`map-floating-toggle ${isMapOpen ? 'open' : ''}`}
@@ -748,7 +753,19 @@ export default function LunchApp() {
         
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
           <div style={{fontSize: '12px', color: 'var(--text-sub)', fontWeight: '600'}}>📍 {m.address || '주소 정보 없음'}</div>
-          {type === 'pick' ? (<div className="reaction-group"><button className={`like-btn ${likes.includes(session?.pin as string) ? 'liked' : ''}`} onClick={(e) => { e.stopPropagation(); toggleReaction(m.id, 'toggle_like'); }} disabled={isLiking || isDisliking}>{isLiking ? '⏳' : (likes.includes(session?.pin as string) ? '❤️' : '🤍')} {likes.length}</button><button className={`dislike-btn ${dislikes.includes(session?.pin as string) ? 'liked' : ''}`} onClick={(e) => { e.stopPropagation(); toggleReaction(m.id, 'toggle_dislike'); }} disabled={isLiking || isDisliking}>{isDisliking ? '⏳' : (dislikes.includes(session?.pin as string) ? '💔' : '👎')} {dislikes.length}</button></div>) : (<span style={{fontSize:'12px', color:'#e74c3c', fontWeight:'800', background:'#e74c3c20', padding:'6px 12px', borderRadius:'12px'}}>❤️ 좋아요 {likes.length}개</span>)}
+          {type === 'pick' ? (
+            <div className="reaction-group">
+              {/* ✨ 좋아요/싫어요 알약 디자인! */}
+              <button className={`like-btn ${likes.includes(session?.pin as string) ? 'liked' : ''}`} onClick={(e) => { e.stopPropagation(); toggleReaction(m.id, 'toggle_like'); }} disabled={isLiking || isDisliking}>
+                {isLiking ? '⏳' : (likes.includes(session?.pin as string) ? '❤️' : '🤍')} {likes.length}
+              </button>
+              <button className={`dislike-btn ${dislikes.includes(session?.pin as string) ? 'liked' : ''}`} onClick={(e) => { e.stopPropagation(); toggleReaction(m.id, 'toggle_dislike'); }} disabled={isLiking || isDisliking}>
+                {isDisliking ? '⏳' : (dislikes.includes(session?.pin as string) ? '💔' : '👎')} {dislikes.length}
+              </button>
+            </div>
+          ) : (
+            <span style={{fontSize:'12px', color:'#e74c3c', fontWeight:'800', background:'#ffe3e3', border:'1px solid #ffc9c9', padding:'6px 12px', borderRadius:'20px'}}>❤️ 좋아요 {likes.length}개</span>
+          )}
         </div>
         
         {type === 'all' && (<div style={{display: 'flex', gap: '10px', marginTop: '15px'}}><button className="btn-outline" style={{flex: 2}} onClick={(e) => { e.stopPropagation(); openEditModal(m, true); }}>🔄 다시 Pick 하기</button><button className="btn-outline" style={{flex: 1, borderColor: 'var(--border)', color: 'var(--text-sub)'}} onClick={(e) => { e.stopPropagation(); copyToClipboard(`[맛집 추천] ${m.shop_name}\n📍 ${m.shop_url}`); }}>📤 공유</button></div>)}
