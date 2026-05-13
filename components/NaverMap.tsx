@@ -20,15 +20,17 @@ export default function NaverMap({
 }) {
   const mapElement = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
-  
-  // 마커와 말풍선을 가게 이름으로 찾기 쉽게 딕셔너리로 저장합니다
   const markersRef = useRef<{ [key: string]: any }>({});
   const infoWindowsRef = useRef<{ [key: string]: any }>({});
 
   const initMap = () => {
     if (!window.naver || !window.naver.maps) return;
 
+    // ✨ 1. 기본 위치를 시청이 아닌 KIPFA 근처(송파구)로 고정하여 깜빡임 방지!
+    const initialLocation = new window.naver.maps.LatLng(37.5147, 127.1042);
+    
     const mapOptions = {
+      center: initialLocation,
       zoom: 16,
       minZoom: 10,
     };
@@ -42,7 +44,11 @@ export default function NaverMap({
           if (status === window.naver.maps.Service.Status.OK && response.v2.meta.totalCount > 0) {
             const item = response.v2.addresses[0];
             const companyLocation = new window.naver.maps.Point(item.x, item.y);
-            mapRef.current.setCenter(companyLocation);
+            
+            // 만약 밖에서 특정 가게를 지목하지 않았을 때만 회사 위치를 중심으로 잡습니다.
+            if (!targetShopName) {
+              mapRef.current.setCenter(companyLocation);
+            }
             
             new window.naver.maps.Marker({
               position: companyLocation,
@@ -52,8 +58,6 @@ export default function NaverMap({
                 anchor: new window.naver.maps.Point(30, 15),
               }
             });
-          } else {
-            mapRef.current.setCenter(new window.naver.maps.LatLng(37.5151, 127.1040));
           }
         }
       );
@@ -64,7 +68,6 @@ export default function NaverMap({
   const renderMarkers = () => {
     if (!mapRef.current || !window.naver || !window.naver.maps || !window.naver.maps.Service) return;
 
-    // 기존 핀 지우기
     Object.values(markersRef.current).forEach((marker: any) => marker.setMap(null));
     markersRef.current = {};
     infoWindowsRef.current = {};
@@ -85,11 +88,12 @@ export default function NaverMap({
           title: menu.shop_name
         });
 
+        // ✨ 길찾기 링크도 모바일 경로 안내 링크로 안정화했습니다.
         const infoWindow = new window.naver.maps.InfoWindow({
           content: `<div style="padding:15px; min-width:180px; font-family: Pretendard, sans-serif; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border-radius: 12px; background: white; border: 1px solid #eee;">
                        <div style="font-weight:900; font-size: 15px; margin-bottom: 4px; color: #333;">${menu.shop_name}</div>
                        <div style="font-size: 12px; color: #666; margin-bottom: 10px; word-break: keep-all;">${menu.menu_details || '상세 정보 없음'}</div>
-                       <a href="https://map.naver.com/v5/directions/KIPFA/${encodeURIComponent(menu.shop_name)}/-/walk" target="_blank" style="display: block; text-align: center; padding: 8px 0; background: #2ecc71; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 12px;">🧭 길찾기</a>
+                       <a href="https://m.map.naver.com/route.nhn?menu=route&ename=${encodeURIComponent(menu.shop_name)}" target="_blank" style="display: block; text-align: center; padding: 8px 0; background: #2ecc71; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 12px;">🧭 길찾기</a>
                     </div>`,
           borderWidth: 0,
           disableAnchor: true,
@@ -97,15 +101,20 @@ export default function NaverMap({
           pixelOffset: new window.naver.maps.Point(0, -10)
         });
 
-        // ✨ 핀 클릭 시: 팝업 띄우고 + 부모에게 "이 가게 눌렀어!" 신호 보내기
         window.naver.maps.Event.addListener(marker, "click", function() {
-          Object.values(infoWindowsRef.current).forEach((iw: any) => iw.close()); // 다른 팝업 닫기
+          Object.values(infoWindowsRef.current).forEach((iw: any) => iw.close());
           infoWindow.open(mapRef.current, marker);
-          if (onMarkerClick) onMarkerClick(menu.id); // 목록으로 스크롤 이동 신호!
+          if (onMarkerClick) onMarkerClick(menu.id);
         });
 
         markersRef.current[menu.shop_name] = marker;
         infoWindowsRef.current[menu.shop_name] = infoWindow;
+
+        // ✨ 핵심: 마커가 그려지는 순간, 만약 이 마커가 타겟 샵이면 즉시 화면을 이동시킵니다!
+        if (targetShopName === menu.shop_name) {
+          mapRef.current.setCenter(point);
+          infoWindow.open(mapRef.current, marker);
+        }
       });
     });
   };
@@ -114,16 +123,13 @@ export default function NaverMap({
     renderMarkers();
   }, [menus]);
 
-  // ✨ 외부(목록)에서 위치보기 버튼을 눌렀을 때 지도를 해당 마커로 이동시키는 마법!
   useEffect(() => {
     if (targetShopName && mapRef.current && markersRef.current[targetShopName]) {
       const targetMarker = markersRef.current[targetShopName];
       const targetInfoWindow = infoWindowsRef.current[targetShopName];
       
-      // 스르륵 부드럽게 이동
       mapRef.current.panTo(targetMarker.getPosition());
       
-      // 다른 팝업은 다 닫고 내 팝업만 열기
       Object.values(infoWindowsRef.current).forEach((iw: any) => iw.close());
       targetInfoWindow.open(mapRef.current, targetMarker);
     }
