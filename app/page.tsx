@@ -59,7 +59,6 @@ export default function LunchApp() {
   const [mapTargetShop, setMapTargetShop] = useState<string | null>(null);
   const [highlightedCardId, setHighlightedCardId] = useState<string | null>(null);
 
-  // ✨ 메뉴 1,2,3과 가격을 폼 데이터에 다시 부활시켰습니다!
   const [formData, setFormData] = useState({
     visitDate: "", category: "한식", shopName: "", shopUrl: "", address: "", road_address: "",
     menu1: "", menu2: "", menu3: "", priceMin: "9,000", priceMax: "15,000"
@@ -316,7 +315,6 @@ export default function LunchApp() {
   };
 
   const handleModalSubmit = async () => {
-    // ✨ 메뉴1이 필수 입력값이 되었습니다.
     if (!formData.shopName.trim() || !formData.menu1.trim()) return showToast("⚠️ 가게명과 메뉴 1개는 필수 입력입니다.");
     const cleanDate = formData.visitDate.replace(/\./g, '-').trim();
 
@@ -692,14 +690,12 @@ export default function LunchApp() {
             <div className="form-group"><label>가게명</label><input type="text" placeholder="링크를 붙여넣으면 자동 입력됩니다" value={formData.shopName} onChange={e => setFormData({...formData, shopName: e.target.value})} onBlur={e => checkDuplicate('name', e.target.value)} /></div>
             <div className="form-group"><label>카테고리</label><select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>{Object.keys(CATEGORY_EMOJI).map(c => <option key={c} value={c}>{CATEGORY_EMOJI[c]}</option>)}</select></div>
             
-            {/* ✨ 대표 메뉴 1,2,3 부활! */}
             <div className="form-group"><label>대표 메뉴</label>
               <input type="text" placeholder="메뉴 1 (필수)" style={{marginBottom:'8px'}} value={formData.menu1} onChange={e => setFormData({...formData, menu1: e.target.value})} />
               <input type="text" placeholder="메뉴 2 (선택)" style={{marginBottom:'8px'}} value={formData.menu2} onChange={e => setFormData({...formData, menu2: e.target.value})} />
               <input type="text" placeholder="메뉴 3 (선택)" value={formData.menu3} onChange={e => setFormData({...formData, menu3: e.target.value})} />
             </div>
 
-            {/* ✨ 가격대 선택 부활! */}
             <div className="form-group"><label>가격대</label><div style={{display:'flex', alignItems:'center', gap:'8px'}}><select value={formData.priceMin} onChange={e => setFormData({...formData, priceMin: e.target.value})}>{priceOptions.map(p => <option key={p} value={p}>{p}</option>)}</select><span style={{fontSize:'13px', fontWeight:'800', color:'var(--text-sub)'}}>부터</span><select value={formData.priceMax} onChange={e => setFormData({...formData, priceMax: e.target.value})}>{priceOptions.map(p => <option key={p} value={p}>{p}</option>)}</select><span style={{fontSize:'13px', fontWeight:'800', color:'var(--text-sub)'}}>까지</span></div></div>
             
             <div className="form-group"><label>지도 URL (선택사항)</label><input type="text" placeholder="네이버 지도 링크" value={formData.shopUrl} onChange={e => setFormData({...formData, shopUrl: e.target.value})} onBlur={handleUrlBlur} /></div>
@@ -733,15 +729,13 @@ export default function LunchApp() {
         
         <div style={{fontWeight: 'bold', fontSize: '12px', color: '#999'}}>🏠 {m.shop_name}</div>
         
-        {/* ✨ 메뉴 텍스트와 가격 표시 부활! */}
         <h3 style={{margin: '5px 0 15px'}}>{m.menu_details}</h3>
         <div className="menu-details">📍 {m.price}</div>
         
-        {/* ✨ 3개의 예쁜 액션 버튼 구성! (가게 정보, 지도 위치, 길찾기) */}
         <div style={{display:'flex', gap: '6px', marginBottom: '15px', marginTop: '10px'}}>
-          <a href={m.shop_url} target="_blank" style={{flex: 1, textAlign: 'center', background: 'var(--bg-main-rgb)', color: 'var(--text-main)', border: '1px solid var(--border)', padding: '8px', borderRadius: '8px', fontWeight: '800', fontSize: '12px', textDecoration: 'none'}}>🗺️ 가게 정보</a>
+          <a href={m.shop_url} target="_blank" style={{flex: 1, textAlign: 'center', background: 'var(--bg-main-rgb)', color: 'var(--text-main)', border: '1px solid var(--border)', padding: '8px', borderRadius: '8px', fontWeight: '800', fontSize: '12px', textDecoration: 'none'}}>🗺️ 네이버 지도에서 보기</a>
           <button onClick={() => handleShowLocationOnMap(m.shop_name)} style={{flex: 1, textAlign: 'center', background: '#3498db15', color: '#3498db', border: '1px solid #3498db40', padding: '8px', borderRadius: '8px', fontWeight: '800', fontSize: '12px', cursor: 'pointer'}}>📍 지도 위치</button>
-          <a href={`https://map.naver.com/v5/directions/KIPFA/${encodeURIComponent(m.shop_name)}/-/walk`} target="_blank" style={{flex: 1, textAlign: 'center', background: '#2ecc7115', color: '#27ae60', border: '1px solid #2ecc7140', padding: '8px', borderRadius: '8px', fontWeight: '800', fontSize: '12px', textDecoration: 'none'}}>🧭 길찾기</a>
+          <a href={`https://m.map.naver.com/route.nhn?menu=route&ename=${encodeURIComponent(m.shop_name)}`} target="_blank" style={{flex: 1, textAlign: 'center', background: '#2ecc7115', color: '#27ae60', border: '1px solid #2ecc7140', padding: '8px', borderRadius: '8px', fontWeight: '800', fontSize: '12px', textDecoration: 'none'}}>🧭 길찾기</a>
         </div>
         
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
