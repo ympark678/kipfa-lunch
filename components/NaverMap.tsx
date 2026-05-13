@@ -15,7 +15,7 @@ export default function NaverMap({
   onMarkerClick 
 }: { 
   menus?: any[], 
-  targetShop?: { name: string, t: number } | null, // ✨ 시간값(t)이 포함된 객체로 변경!
+  targetShop?: { name: string, t: number } | null, 
   onMarkerClick?: (id: string) => void 
 }) {
   const mapElement = useRef<HTMLDivElement | null>(null);
@@ -26,7 +26,6 @@ export default function NaverMap({
   
   const geocodeCache = useRef<{ [key: string]: any }>({});
 
-  // ✨ 시간(t)이 바뀔 때마다 무조건 실행되므로, 같은 가게를 여러 번 눌러도 100% 작동합니다!
   useEffect(() => {
     if (targetShop) {
       targetShopRef.current = targetShop.name;
