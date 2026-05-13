@@ -403,6 +403,17 @@ export default function LunchApp() {
       .catch(() => showToast("🚨 복사 실패"));
   };
 
+  const handleMapMarkerClick = (shopId: string) => {
+    const cardElement = document.getElementById(`shop-card-${shopId}`);
+    if (cardElement) {
+      const yOffset = -150;
+      const y = cardElement.getBoundingClientRect().top + window.scrollY + yOffset;
+      window.scrollTo({ top: y, behavior: 'smooth' });
+      setHighlightedCardId(shopId);
+      setTimeout(() => setHighlightedCardId(null), 2000);
+    }
+  };
+
   const handleShowLocationOnMap = (shopName: string) => {
     setIsMapOpen(true);
     setMapTargetShop({ name: shopName, t: Date.now() });
@@ -494,7 +505,6 @@ export default function LunchApp() {
     touchStartY.current = 0;
   };
 
-  // 로그인 화면
   if (!session) return (
     <div className="container" style={{ maxWidth: '400px', margin: '100px auto', textAlign: 'center', padding: '20px' }}>
       <h2 style={{ fontWeight: 900, marginBottom: '30px' }}>🏢 KIPFA 점심 추천</h2>
@@ -540,6 +550,17 @@ export default function LunchApp() {
         .tabs { display: flex; gap: 8px; margin-bottom: 15px; }
         .tab { flex: 1; padding: 12px; text-align: center; background: #fff; border-radius: 10px; cursor: pointer; font-weight: 800; font-size: 14px; color: #888; border: 1px solid #eee; }
         .tab.active { background: #3498db; color: white; border-color: #3498db; }
+        
+        /* ✨ 타이틀 디자인 원상복구 */
+        .section-title { position: sticky; top: var(--sticky-top); z-index: 9998; font-size: 16px; color: var(--text-main); border-bottom: 2px solid #3498db; padding: 15px 20px 10px 20px; margin: 0 -20px 15px -20px; font-weight: 800; letter-spacing: -0.5px; background: rgba(var(--bg-main-rgb), 0.90); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+        .filter-section { position: sticky; top: var(--sticky-top); z-index: 9998; padding: 10px 20px; margin: 0 -20px 15px -20px; display: flex; flex-direction: column; gap: 12px; background: rgba(var(--bg-main-rgb), 0.90); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .filter-section.hidden { transform: translateY(-150%); pointer-events: none; }
+        
+        /* ✨ 카테고리 스와이프 복구 */
+        .pill-scroll-container { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; width: 100%; }
+        .pill-scroll-container::-webkit-scrollbar { display: none; }
+        .pill-btn { flex-shrink: 0; padding: 8px 16px; border-radius: 30px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-sub); font-weight: 700; font-size: 14px; white-space: nowrap; cursor: pointer; transition: 0.2s; }
+        .pill-btn.active { background: #3498db; color: white; border-color: #3498db; }
         
         .menu-card { background: white; padding: 20px; border-radius: 18px; border: 1px solid #eee; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); transition: 0.2s; position: relative; cursor: pointer; }
         .menu-card.highlight { border-color: #3498db; box-shadow: 0 0 15px rgba(52,152,219,0.3); transform: scale(1.02); }
@@ -636,14 +657,14 @@ export default function LunchApp() {
           <div>
             {activeTab === 'pick' && (
               <>
-                <h4 style={{ margin: '10px 0', color: '#3498db' }}>🎯 이번주 회식 후보</h4>
+                <h3 className="section-title">🎯 이번주 수/금 회식 후보</h3>
                 {filteredData.tw.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '40px 20px', background: 'white', borderRadius: '20px' }}>후보가 없습니다.</div>
                 ) : (
                   filteredData.tw.map(m => <Card key={m.id} menu={m} type="pick" />)
                 )}
 
-                <h4 style={{ margin: '20px 0 10px', color: '#888' }}>🗓️ 다음주 회식 후보</h4>
+                <h3 className="section-title">🗓️ 다음주 수/금 회식 후보</h3>
                 {filteredData.nw.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '40px 20px', background: 'white', borderRadius: '20px' }}>후보가 없습니다.</div>
                 ) : (
@@ -654,18 +675,27 @@ export default function LunchApp() {
             
             {activeTab === 'all' && (
               <>
-                <input 
-                  type="text" 
-                  placeholder="🔍 가게명 검색..." 
-                  value={searchQuery} 
-                  onChange={e => setSearchQuery(e.target.value)} 
-                  style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #eee', marginBottom: '15px', boxSizing: 'border-box' }} 
-                />
-                <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '10px', marginBottom: '10px' }}>
-                  <button onClick={() => setCategoryFilter('all')} style={{ padding: '6px 12px', borderRadius: '20px', border: '1px solid #ddd', background: categoryFilter === 'all' ? '#3498db' : 'white', color: categoryFilter === 'all' ? 'white' : '#555', whiteSpace: 'nowrap' }}>전체</button>
-                  {Object.keys(CATEGORY_EMOJI).map(c => (
-                    <button key={c} onClick={() => setCategoryFilter(c)} style={{ padding: '6px 12px', borderRadius: '20px', border: '1px solid #ddd', background: categoryFilter === c ? '#3498db' : 'white', color: categoryFilter === c ? 'white' : '#555', whiteSpace: 'nowrap' }}>{CATEGORY_EMOJI[c]}</button>
-                  ))}
+                <div className={`filter-section ${isScrollDown ? 'hidden' : ''}`}>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <input 
+                      type="text" 
+                      placeholder="🔍 가게명 검색..." 
+                      value={searchQuery} 
+                      onChange={e => setSearchQuery(e.target.value)} 
+                      style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #eee', boxSizing: 'border-box' }} 
+                    />
+                    <select value={sortOption} onChange={e => setSortOption(e.target.value as any)} style={{ width: '110px', padding: '12px', borderRadius: '10px', border: '1px solid #eee' }}>
+                      <option value="latest">⏱️ 최신순</option>
+                      <option value="likes">❤️ 인기순</option>
+                    </select>
+                  </div>
+                  {/* ✨ 가로 스와이프 기능 완벽 복구 */}
+                  <div className="pill-scroll-container" onTouchStart={e => e.stopPropagation()} onTouchMove={e => e.stopPropagation()}>
+                    <button className={`pill-btn ${categoryFilter === 'all' ? 'active' : ''}`} onClick={() => setCategoryFilter('all')}>🏷️ 전체</button>
+                    {Object.keys(CATEGORY_EMOJI).map(c => (
+                      <button key={c} className={`pill-btn ${categoryFilter === c ? 'active' : ''}`} onClick={() => setCategoryFilter(c)}>{CATEGORY_EMOJI[c]}</button>
+                    ))}
+                  </div>
                 </div>
                 {filteredData.allF.map(m => <Card key={m.id} menu={m} type="all" />)}
               </>
@@ -679,6 +709,7 @@ export default function LunchApp() {
       )}
       <button onClick={openAddModal} style={{ position: 'fixed', bottom: '30px', right: '20px', width: '56px', height: '56px', borderRadius: '50%', background: '#3498db', color: 'white', border: 'none', fontSize: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', zIndex: 9998 }}>＋</button>
 
+      {/* 모달 창들 */}
       {isRouletteOpen && (
         <div className="modal" onClick={() => !isSpinning && setIsRouletteOpen(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ textAlign: 'center' }}>
@@ -771,8 +802,6 @@ export default function LunchApp() {
   function Card({ menu: m, type }: { menu: any, type: string }) {
     const likes = String(m.likes || '').split(',').filter(Boolean);
     const dislikes = String(m.dislikes || '').split(',').filter(Boolean);
-    
-    // ✨ TypeScript 에러 방지용 || "" 추가 완료
     const isLiked = likes.includes(session?.pin || "");
     const isDisliked = dislikes.includes(session?.pin || "");
 
@@ -799,7 +828,8 @@ export default function LunchApp() {
         
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '15px' }}>
           
-          <a href={`https://map.naver.com/p/search/${encodeURIComponent(m.shop_name)}`} target="_blank" onClick={e => e.stopPropagation()} className="naver-map-btn">
+          {/* ✨ 절대 깨지지 않는 공식 네이버 지도 아이콘 로고 적용 완료 */}
+          <a href={m.shop_url} target="_blank" onClick={e => e.stopPropagation()} className="naver-map-btn">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M16.0718 0H7.92817C3.54921 0 0 3.54921 0 7.92817V16.0718C0 20.4508 3.54921 24 7.92817 24H16.0718C20.4508 24 24 20.4508 24 16.0718V7.92817C24 3.54921 20.4508 0 16.0718 0Z" fill="#03C75A"/>
               <path d="M16.9242 17.5255H13.6702L9.42152 11.2335V17.5255H6.38818V6.47449H9.64219L13.8909 12.7665V6.47449H16.9242V17.5255Z" fill="white"/>
