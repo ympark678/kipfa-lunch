@@ -494,6 +494,7 @@ export default function LunchApp() {
     touchStartY.current = 0;
   };
 
+  // 로그인 화면
   if (!session) return (
     <div className="container" style={{ maxWidth: '400px', margin: '100px auto', textAlign: 'center', padding: '20px' }}>
       <h2 style={{ fontWeight: 900, marginBottom: '30px' }}>🏢 KIPFA 점심 추천</h2>
@@ -540,8 +541,9 @@ export default function LunchApp() {
         .tab { flex: 1; padding: 12px; text-align: center; background: #fff; border-radius: 10px; cursor: pointer; font-weight: 800; font-size: 14px; color: #888; border: 1px solid #eee; }
         .tab.active { background: #3498db; color: white; border-color: #3498db; }
         
-        .section-title { position: sticky; top: var(--sticky-top); z-index: 9998; font-size: 16px; color: var(--text-main); border-bottom: 2px solid #3498db; padding: 15px 20px 10px 20px; margin: 0 -20px 15px -20px; font-weight: 800; letter-spacing: -0.5px; background: rgba(var(--bg-main-rgb), 0.90); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
-        .filter-section { position: sticky; top: var(--sticky-top); z-index: 9998; padding: 10px 20px; margin: 0 -20px 15px -20px; display: flex; flex-direction: column; gap: 12px; background: rgba(var(--bg-main-rgb), 0.90); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        /* ✨ 완벽하게 복구된 Sticky 섹션 타이틀 */
+        .section-title { position: sticky; z-index: 9998; font-size: 16px; color: var(--text-main); border-bottom: 2px solid #3498db; padding: 15px 20px 10px 20px; margin: 0 -20px 15px -20px; font-weight: 800; letter-spacing: -0.5px; background: rgba(255,255,255,0.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+        .filter-section { position: sticky; z-index: 9998; padding: 10px 20px; margin: 0 -20px 15px -20px; display: flex; flex-direction: column; gap: 12px; background: rgba(255,255,255,0.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .filter-section.hidden { transform: translateY(-150%); pointer-events: none; }
         
         .pill-scroll-container { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; width: 100%; }
@@ -553,10 +555,12 @@ export default function LunchApp() {
         .menu-card.highlight { border-color: #3498db; box-shadow: 0 0 15px rgba(52,152,219,0.3); transform: scale(1.02); }
         .tag { background: #f1f3f5; padding: 4px 10px; border-radius: 6px; font-size: 11px; margin-right: 5px; font-weight: 800; color: #495057; }
         
+        /* ✨ 완전히 분리된 👍/👎 디자인 */
         .reaction-group { display: flex; gap: 6px; }
-        .btn-pill { background: #f8f9fa; border: 1px solid #eee; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 5px; cursor: pointer; }
-        .btn-pill.liked { background: #e3f2fd; color: #228be6; border-color: #d0ebff; }
-        .btn-pill.disliked { background: #fff5f5; color: #fa5252; border-color: #ffc9c9; }
+        .like-btn { background: white; border: 1.5px solid #3498db; color: #3498db; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 5px; cursor: pointer; transition: 0.2s; }
+        .like-btn.active { background: #3498db; color: white; }
+        .dislike-btn { background: white; border: 1.5px solid #e1e5e8; color: #7f8c8d; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 5px; cursor: pointer; transition: 0.2s; }
+        .dislike-btn.active { background: #e74c3c; border-color: #e74c3c; color: white; }
         
         .naver-map-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: #fff; border: 1px solid #eee; padding: 8px 14px; border-radius: 12px; text-decoration: none; color: #333; font-weight: 800; font-size: 13px; }
         
@@ -644,14 +648,14 @@ export default function LunchApp() {
           <div>
             {activeTab === 'pick' && (
               <>
-                <h3 className="section-title">🎯 이번주 수/금 회식 후보</h3>
+                <h3 className="section-title" style={{ top: stickyTop }}>🎯 이번주 수/금 회식 후보</h3>
                 {filteredData.tw.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '40px 20px', background: 'white', borderRadius: '20px' }}>후보가 없습니다.</div>
                 ) : (
                   filteredData.tw.map(m => <Card key={m.id} menu={m} type="pick" />)
                 )}
 
-                <h3 className="section-title">🗓️ 다음주 수/금 회식 후보</h3>
+                <h3 className="section-title" style={{ top: stickyTop }}>🗓️ 다음주 수/금 회식 후보</h3>
                 {filteredData.nw.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '40px 20px', background: 'white', borderRadius: '20px' }}>후보가 없습니다.</div>
                 ) : (
@@ -662,7 +666,7 @@ export default function LunchApp() {
             
             {activeTab === 'all' && (
               <>
-                <div className={`filter-section ${isScrollDown ? 'hidden' : ''}`}>
+                <div className={`filter-section ${isScrollDown ? 'hidden' : ''}`} style={{ top: stickyTop }}>
                   <div style={{ display: 'flex', gap: '10px' }}>
                     <input 
                       type="text" 
@@ -722,7 +726,6 @@ export default function LunchApp() {
               <label>🔍 네이버에서 찾기</label>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <input type="text" placeholder="예: 돈까스" value={keyword} onChange={e => setKeyword(e.target.value)} onKeyDown={e => e.key === 'Enter' && searchShop()} style={{ flex: 1 }} />
-                {/* ✨ 텍스트 대신 돋보기 아이콘으로 변경하고 세로 꺾임 방지 처리 */}
                 <button onClick={searchShop} style={{ background: '#3498db', color: 'white', border: 'none', width: '46px', height: '46px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                    <span style={{ fontSize: '20px' }}>🔍</span>
                 </button>
@@ -758,9 +761,15 @@ export default function LunchApp() {
               <input type="text" placeholder="메뉴 3 (선택)" value={formData.menu3} onChange={e => setFormData({ ...formData, menu3: e.target.value })} />
             </div>
 
-            <button onClick={handleModalSubmit} style={{ width: '100%', background: '#3498db', color: 'white', padding: '15px', borderRadius: '12px', border: 'none', fontWeight: 900, marginTop: '10px' }}>
-              완료!
-            </button>
+            {/* ✨ 취소와 완료 버튼 분리! */}
+            <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+              <button onClick={() => setIsModalOpen(false)} style={{ flex: 1, background: '#f1f3f5', color: '#495057', padding: '15px', borderRadius: '12px', border: 'none', fontWeight: 900 }}>
+                취소
+              </button>
+              <button onClick={handleModalSubmit} style={{ flex: 2, background: '#3498db', color: 'white', padding: '15px', borderRadius: '12px', border: 'none', fontWeight: 900 }}>
+                {modalMode === 'edit' ? '수정 완료!' : '추천 완료!'}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -816,16 +825,19 @@ export default function LunchApp() {
         
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '15px' }}>
           <a href={m.shop_url} target="_blank" onClick={e => e.stopPropagation()} className="naver-map-btn">
-            {/* ✨ CSS로 만든 절대 깨지지 않는 N 로고 */}
-            <span style={{ background: '#03C75A', color: 'white', padding: '2px 5px', borderRadius: '4px', fontWeight: 900, fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>N</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M16.0718 0H7.92817C3.54921 0 0 3.54921 0 7.92817V16.0718C0 20.4508 3.54921 24 7.92817 24H16.0718C20.4508 24 24 20.4508 24 16.0718V7.92817C24 3.54921 20.4508 0 16.0718 0Z" fill="#03C75A"/>
+              <path d="M16.9242 17.5255H13.6702L9.42152 11.2335V17.5255H6.38818V6.47449H9.64219L13.8909 12.7665V6.47449H16.9242V17.5255Z" fill="white"/>
+            </svg>
             네이버 지도
           </a>
 
+          {/* ✨ 색상과 테두리로 확연히 구분되는 디자인 */}
           <div className="reaction-group">
-            <button className={`btn-pill ${isLiked ? 'liked' : ''}`} onClick={e => { e.stopPropagation(); toggleReaction(m.id, 'toggle_like'); }}>
+            <button className={`like-btn ${isLiked ? 'active' : ''}`} onClick={e => { e.stopPropagation(); toggleReaction(m.id, 'toggle_like'); }} disabled={reactionLoading?.id === m.id}>
               👍 {likes.length}
             </button>
-            <button className={`btn-pill ${isDisliked ? 'disliked' : ''}`} onClick={e => { e.stopPropagation(); toggleReaction(m.id, 'toggle_dislike'); }}>
+            <button className={`dislike-btn ${isDisliked ? 'active' : ''}`} onClick={e => { e.stopPropagation(); toggleReaction(m.id, 'toggle_dislike'); }} disabled={reactionLoading?.id === m.id}>
               👎 {dislikes.length}
             </button>
           </div>
