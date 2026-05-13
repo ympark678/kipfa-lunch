@@ -72,7 +72,6 @@ export default function LunchApp() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const touchStartY = useRef(0);
 
-  // ✨ 슬림해진 입력 폼 데이터 (가격대, URL 삭제됨)
   const [formData, setFormData] = useState({
     visitDate: "",
     category: "한식",
@@ -335,7 +334,7 @@ export default function LunchApp() {
         shop_name: formData.shopName.trim(),
         shop_url: autoUrl,
         menu_details: combinedMenus,
-        price: "", // 가격 필드는 삭제됨
+        price: "",
         address: formData.address,
         road_address: formData.road_address
       };
@@ -506,7 +505,6 @@ export default function LunchApp() {
     touchStartY.current = 0;
   };
 
-  // 로그인되지 않은 화면
   if (!session) return (
     <div className="container" style={{ maxWidth: '400px', margin: '100px auto', textAlign: 'center', padding: '20px' }}>
       <h2 style={{ fontWeight: 900, marginBottom: '30px' }}>🏢 KIPFA 점심 추천</h2>
@@ -534,7 +532,6 @@ export default function LunchApp() {
     </div>
   );
 
-  // 메인 화면 렌더링
   return (
     <>
       <style>{`
@@ -803,12 +800,9 @@ export default function LunchApp() {
         <p style={{ margin: 0, color: '#555', fontSize: '14px', fontWeight: 600 }}>{m.menu_details}</p>
         
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '15px' }}>
-          {/* ✨ 절대 깨지지 않는 SVG 기반 공식 네이버 지도 아이콘 */}
-          <a href={`https://map.naver.com/p/search/${encodeURIComponent(m.shop_name)}`} target="_blank" onClick={e => e.stopPropagation()} className="naver-map-btn">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M16.0718 0H7.92817C3.54921 0 0 3.54921 0 7.92817V16.0718C0 20.4508 3.54921 24 7.92817 24H16.0718C20.4508 24 24 20.4508 24 16.0718V7.92817C24 3.54921 20.4508 0 16.0718 0Z" fill="#03C75A"/>
-              <path d="M16.9242 17.5255H13.6702L9.42152 11.2335V17.5255H6.38818V6.47449H9.64219L13.8909 12.7665V6.47449H16.9242V17.5255Z" fill="white"/>
-            </svg>
+          {/* ✨ 절대 깨지지 않는 순수 CSS 네이버 로고 박스 */}
+          <a href={m.shop_url} target="_blank" onClick={e => e.stopPropagation()} className="naver-map-btn">
+            <span style={{ background: '#03C75A', color: 'white', padding: '2px 5px', borderRadius: '4px', fontWeight: 900, fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>N</span>
             네이버 지도
           </a>
 
