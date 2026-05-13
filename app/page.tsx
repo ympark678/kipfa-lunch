@@ -8,8 +8,6 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzRoJPOYW8FB1Ck69hOl56aluBxNDjUAPewlsTEgIvK39y6hShhx4SU6K2enx0R29NLAQ/exec";
-
 const CATEGORY_EMOJI: Record<string, string> = {
   "한식": "🍚 한식",
   "중식": "🥢 중식",
@@ -369,26 +367,36 @@ export default function LunchApp() {
     }
   };
 
+  // ✨ 상호 배제 처리 (좋아요/싫어요를 동시에 누르지 못하게 연동!)
   const toggleReaction = async (id: string, action: string) => {
     setReactionLoading({ id, type: action });
     try {
       const targetMenu = menus.find(m => m.id === id);
       if (!targetMenu) return;
 
-      let isLike = action === 'toggle_like';
-      let listStr = String(isLike ? (targetMenu.likes || '') : (targetMenu.dislikes || ''));
-      let arr = listStr.split(',').filter(Boolean);
+      const userPin = session?.pin as string;
+      let isLikeAction = action === 'toggle_like';
       
-      let isCancel = arr.includes(session?.pin as string);
-      if (isCancel) {
-        arr = arr.filter(p => p !== session?.pin);
+      let likesArr = String(targetMenu.likes || '').split(',').filter(Boolean);
+      let dislikesArr = String(targetMenu.dislikes || '').split(',').filter(Boolean);
+      
+      if (isLikeAction) {
+        if (likesArr.includes(userPin)) {
+          likesArr = likesArr.filter(p => p !== userPin); // 이미 좋아요면 취소
+        } else {
+          likesArr.push(userPin); // 좋아요 추가
+          dislikesArr = dislikesArr.filter(p => p !== userPin); // 혹시 싫어요가 있으면 삭제!
+        }
       } else {
-        arr.push(session?.pin as string);
+        if (dislikesArr.includes(userPin)) {
+          dislikesArr = dislikesArr.filter(p => p !== userPin); // 이미 싫어요면 취소
+        } else {
+          dislikesArr.push(userPin); // 싫어요 추가
+          likesArr = likesArr.filter(p => p !== userPin); // 혹시 좋아요가 있으면 삭제!
+        }
       }
 
-      const updateData = isLike ? { likes: arr.join(',') } : { dislikes: arr.join(',') };
-      await supabase.from('menus').update(updateData).eq('id', id);
-
+      await supabase.from('menus').update({ likes: likesArr.join(','), dislikes: dislikesArr.join(',') }).eq('id', id);
       fetchMenus(true);
     } catch (e) {
       showToast("🚨 오류 발생");
@@ -541,7 +549,6 @@ export default function LunchApp() {
         .tab { flex: 1; padding: 12px; text-align: center; background: #fff; border-radius: 10px; cursor: pointer; font-weight: 800; font-size: 14px; color: #888; border: 1px solid #eee; }
         .tab.active { background: #3498db; color: white; border-color: #3498db; }
         
-        /* ✨ 완벽하게 복구된 Sticky 섹션 타이틀 */
         .section-title { position: sticky; z-index: 9998; font-size: 16px; color: var(--text-main); border-bottom: 2px solid #3498db; padding: 15px 20px 10px 20px; margin: 0 -20px 15px -20px; font-weight: 800; letter-spacing: -0.5px; background: rgba(255,255,255,0.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
         .filter-section { position: sticky; z-index: 9998; padding: 10px 20px; margin: 0 -20px 15px -20px; display: flex; flex-direction: column; gap: 12px; background: rgba(255,255,255,0.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .filter-section.hidden { transform: translateY(-150%); pointer-events: none; }
@@ -555,10 +562,10 @@ export default function LunchApp() {
         .menu-card.highlight { border-color: #3498db; box-shadow: 0 0 15px rgba(52,152,219,0.3); transform: scale(1.02); }
         .tag { background: #f1f3f5; padding: 4px 10px; border-radius: 6px; font-size: 11px; margin-right: 5px; font-weight: 800; color: #495057; }
         
-        /* ✨ 완전히 분리된 👍/👎 디자인 */
+        /* ✨ 확 바뀐 직관적인 좋아요/싫어요 색상 및 디자인 (하트) */
         .reaction-group { display: flex; gap: 6px; }
-        .like-btn { background: white; border: 1.5px solid #3498db; color: #3498db; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 5px; cursor: pointer; transition: 0.2s; }
-        .like-btn.active { background: #3498db; color: white; }
+        .like-btn { background: white; border: 1.5px solid #ffc9c9; color: #fa5252; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 5px; cursor: pointer; transition: 0.2s; }
+        .like-btn.active { background: #fa5252; color: white; border-color: #fa5252; }
         .dislike-btn { background: white; border: 1.5px solid #e1e5e8; color: #7f8c8d; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 5px; cursor: pointer; transition: 0.2s; }
         .dislike-btn.active { background: #e74c3c; border-color: #e74c3c; color: white; }
         
@@ -567,7 +574,8 @@ export default function LunchApp() {
         .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #2c3e50; color: white; padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 14px; z-index: 100000; animation: slideDown 0.3s; box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
         @keyframes slideDown { from { top: -50px; } to { top: 20px; } }
         
-        .map-floating-toggle { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #2c3e50; color: white; border: none; padding: 14px 28px; border-radius: 30px; font-weight: 900; box-shadow: 0 8px 20px rgba(0,0,0,0.2); z-index: 9999; cursor: pointer; transition: 0.2s; }
+        /* ✨ 하단 안전 영역(Safe Area)을 고려한 플로팅 버튼 배치 */
+        .map-floating-toggle { position: fixed; bottom: calc(30px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); background: #2c3e50; color: white; border: none; padding: 14px 28px; border-radius: 30px; font-weight: 900; box-shadow: 0 8px 20px rgba(0,0,0,0.2); z-index: 9999; cursor: pointer; transition: 0.2s; }
         
         .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 10000; }
         .modal-content { background: white; padding: 25px; border-radius: 24px; width: 90%; max-width: 400px; max-height: 85vh; overflow-y: auto; }
@@ -695,10 +703,11 @@ export default function LunchApp() {
       </div>
 
       {activeTab === 'pick' && (
-        <button onClick={spinRoulette} style={{ position: 'fixed', bottom: '100px', right: '20px', width: '56px', height: '56px', borderRadius: '50%', background: '#fff', color: '#333', border: '1px solid #ddd', fontSize: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 9998 }}>🎲</button>
+        <button onClick={spinRoulette} style={{ position: 'fixed', bottom: 'calc(100px + env(safe-area-inset-bottom))', right: '20px', width: '56px', height: '56px', borderRadius: '50%', background: '#fff', color: '#333', border: '1px solid #ddd', fontSize: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 9998 }}>🎲</button>
       )}
-      <button onClick={openAddModal} style={{ position: 'fixed', bottom: '30px', right: '20px', width: '56px', height: '56px', borderRadius: '50%', background: '#3498db', color: 'white', border: 'none', fontSize: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', zIndex: 9998 }}>＋</button>
+      <button onClick={openAddModal} style={{ position: 'fixed', bottom: 'calc(30px + env(safe-area-inset-bottom))', right: '20px', width: '56px', height: '56px', borderRadius: '50%', background: '#3498db', color: 'white', border: 'none', fontSize: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', zIndex: 9998 }}>＋</button>
 
+      {/* 모달 창들 */}
       {isRouletteOpen && (
         <div className="modal" onClick={() => !isSpinning && setIsRouletteOpen(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ textAlign: 'center' }}>
@@ -723,7 +732,7 @@ export default function LunchApp() {
             <h3 style={{ marginTop: 0, fontWeight: 900 }}>{modalMode === 'edit' ? '✏️ 맛집 수정' : '✨ 새로운 맛집 추천'}</h3>
             
             <div className="form-group" style={{ background: '#f8f9fa', padding: '15px', borderRadius: '12px' }}>
-              <label>🔍 네이버에서 찾기</label>
+              <label>🔍 가게 검색</label>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <input type="text" placeholder="예: 돈까스" value={keyword} onChange={e => setKeyword(e.target.value)} onKeyDown={e => e.key === 'Enter' && searchShop()} style={{ flex: 1 }} />
                 <button onClick={searchShop} style={{ background: '#3498db', color: 'white', border: 'none', width: '46px', height: '46px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -761,13 +770,13 @@ export default function LunchApp() {
               <input type="text" placeholder="메뉴 3 (선택)" value={formData.menu3} onChange={e => setFormData({ ...formData, menu3: e.target.value })} />
             </div>
 
-            {/* ✨ 취소와 완료 버튼 분리! */}
+            {/* ✨ 추천 완료를 왼쪽으로, 취소를 오른쪽으로 변경! */}
             <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-              <button onClick={() => setIsModalOpen(false)} style={{ flex: 1, background: '#f1f3f5', color: '#495057', padding: '15px', borderRadius: '12px', border: 'none', fontWeight: 900 }}>
-                취소
-              </button>
               <button onClick={handleModalSubmit} style={{ flex: 2, background: '#3498db', color: 'white', padding: '15px', borderRadius: '12px', border: 'none', fontWeight: 900 }}>
                 {modalMode === 'edit' ? '수정 완료!' : '추천 완료!'}
+              </button>
+              <button onClick={() => setIsModalOpen(false)} style={{ flex: 1, background: '#f1f3f5', color: '#495057', padding: '15px', borderRadius: '12px', border: 'none', fontWeight: 900 }}>
+                취소
               </button>
             </div>
           </div>
@@ -825,20 +834,17 @@ export default function LunchApp() {
         
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '15px' }}>
           <a href={m.shop_url} target="_blank" onClick={e => e.stopPropagation()} className="naver-map-btn">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M16.0718 0H7.92817C3.54921 0 0 3.54921 0 7.92817V16.0718C0 20.4508 3.54921 24 7.92817 24H16.0718C20.4508 24 24 20.4508 24 16.0718V7.92817C24 3.54921 20.4508 0 16.0718 0Z" fill="#03C75A"/>
-              <path d="M16.9242 17.5255H13.6702L9.42152 11.2335V17.5255H6.38818V6.47449H9.64219L13.8909 12.7665V6.47449H16.9242V17.5255Z" fill="white"/>
-            </svg>
+            <span style={{ background: '#03C75A', color: 'white', padding: '2px 5px', borderRadius: '4px', fontWeight: 900, fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>N</span>
             네이버 지도
           </a>
 
-          {/* ✨ 색상과 테두리로 확연히 구분되는 디자인 */}
+          {/* ✨ 변경된 좋아요/싫어요 (❤️ / 💔) 감정 아이콘 */}
           <div className="reaction-group">
             <button className={`like-btn ${isLiked ? 'active' : ''}`} onClick={e => { e.stopPropagation(); toggleReaction(m.id, 'toggle_like'); }} disabled={reactionLoading?.id === m.id}>
-              👍 {likes.length}
+              {isLiked ? '❤️' : '🤍'} {likes.length}
             </button>
             <button className={`dislike-btn ${isDisliked ? 'active' : ''}`} onClick={e => { e.stopPropagation(); toggleReaction(m.id, 'toggle_dislike'); }} disabled={reactionLoading?.id === m.id}>
-              👎 {dislikes.length}
+              {isDisliked ? '💔' : '👎'} {dislikes.length}
             </button>
           </div>
         </div>
