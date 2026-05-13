@@ -3,6 +3,9 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
+// ✨ 1. 우리가 만든 네이버 지도 부품 불러오기
+import NaverMap from "../components/NaverMap";
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -540,6 +543,12 @@ export default function LunchApp() {
                     {Object.keys(CATEGORY_EMOJI).map(c => <button key={c} className={`pill-btn ${categoryFilter === c ? 'active' : ''}`} onClick={() => setCategoryFilter(c)}>{CATEGORY_EMOJI[c]}</button>)}
                   </div>
                   </div>
+                  
+                  {/* ✨ 2. 네이버 지도가 들어갈 자리! (검색 필터 바로 아래) ✨ */}
+                  <div style={{ marginBottom: '20px' }}>
+                    <NaverMap />
+                  </div>
+
                   {filteredData.allF.length === 0 ? <div className="empty-state" style={{marginTop: '40px'}}><div className="empty-icon">🔍</div><div className="empty-title">결과가 없습니다.</div></div> : filteredData.allF.map(m => <Card key={m.id} menu={m} type="all" />)}
                 </div>
               )}
