@@ -471,7 +471,6 @@ export default function LunchApp() {
 
   return (
     <>
-      {/* ⭐️ 관성 스크롤 복구 및 버튼 찌그러짐 방지 CSS 추가 */}
       <style>{`
         @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
         :root { --bg-main-rgb: 247, 249, 250; --text-main: #2c3e50; --text-sub: #7f8c8d; --card-bg: #ffffff; --border: #e1e5e8; --input-bg: #ffffff; --skeleton-bg: linear-gradient(110deg, #ececec 8%, #f5f5f5 18%, #ececec 33%); --modal-bg: #ffffff; --btn-secondary: #ffffff; --empty-bg: #ffffff; --sticky-top: ${stickyTop}px; }
@@ -583,7 +582,6 @@ export default function LunchApp() {
                   </div>
                   </div>
                   
-                  {/* ✨ 지도가 들어가는 영역 */}
                   <div style={{ marginBottom: '20px' }}>
                     <NaverMap />
                   </div>
@@ -604,7 +602,6 @@ export default function LunchApp() {
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="modal-title-sticky">{modalMode === 'add' ? '✨ 새로운 메뉴 추천' : modalMode === 'edit' ? '✏️ 추천 정보 수정' : '🔄 다시 Pick 하기'}</div>
             
-            {/* ✨ 맛집 키워드 검색 섹션 추가 */}
             <div className="form-group" style={{background: '#f8f9fa', padding: '15px', borderRadius: '12px', border: '1px solid #e9ecef', marginBottom: '18px'}}>
               <label>🔍 네이버 맛집 검색 (이름 클릭시 자동입력)</label>
               <div style={{display: 'flex', gap: '8px'}}>
@@ -657,7 +654,6 @@ export default function LunchApp() {
     return (
       <div className="menu-card">{type === 'all' && (<div className="card-top-actions"><button className="btn-mini" onClick={() => openEditModal(m, false)}>✏️ 수정</button><button className="btn-mini danger" onClick={() => { setDeleteTargetId(m.id); setIsDeleteModalOpen(true); }} disabled={isDeleteRequested}>{isDeleteRequested ? '요청중' : '🗑️ 삭제'}</button></div>)}{isDeleteRequested && <div className="tag-deleted">🚨 삭제 요청 검토 중: {m.delete_reason || '사유 미상'}</div>}<div className="tag-container"><span className="tag">{CATEGORY_EMOJI[m.category] || m.category}</span><span className="tag tag-date">📅 {dateStr}</span>{type === 'all' && isPicked && <span className="tag tag-status">🎯 Pick 완료</span>}</div><div style={{fontWeight:'800', color:'var(--text-sub)', marginBottom:'5px', fontSize:'12px'}}>🏠 {m.shop_name}</div><h3>{m.menu_details}</h3><div className="menu-details">📍 {m.price}</div><div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
         
-        {/* ✨ 길찾기 버튼이 추가된 부분 */}
         <div style={{display:'flex', gap: '8px'}}>
           <a href={m.shop_url} target="_blank" className="map-link">🗺️ 지도/정보 보기</a>
           <a href={`https://map.naver.com/v5/directions/KIPFA/${encodeURIComponent(m.shop_name)}/-/walk`} target="_blank" className="map-link" style={{background: '#2ecc7120', color: '#27ae60'}}>🧭 길찾기</a>
