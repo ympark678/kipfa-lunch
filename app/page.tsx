@@ -405,19 +405,13 @@ export default function LunchApp() {
     }
   };
 
-  // ✨ 목록에서 카드를 클릭했을 때 지도로 부드럽게 스크롤해주는 로직
+  // ✨ 카드 누르면 무조건 화면 최상단(top: 0)으로 완벽하게 이동!
   const handleShowLocationOnMap = (shopName: string) => {
     setIsMapOpen(true); 
     setMapTargetShop(shopName); 
     setTimeout(() => {
-      const mapEl = document.getElementById('map-area');
-      if (mapEl) {
-        const yOffset = -100; // 상단 헤더 높이만큼 보정
-        const y = mapEl.getBoundingClientRect().top + window.scrollY + yOffset;
-        window.scrollTo({ top: y, behavior: 'smooth' });
-      }
+      window.scrollTo({ top: 0, behavior: 'smooth' }); 
     }, 100);
-    showToast(`🗺️ 지도에서 '${shopName}' 위치 확인!`);
   };
 
   const filteredData = useMemo(() => {
@@ -738,7 +732,7 @@ export default function LunchApp() {
       <div 
         id={`shop-card-${m.id}`} 
         className={cardClass} 
-        onClick={() => handleShowLocationOnMap(m.shop_name)} // ✨ 카드 전체를 누르면 지도로 이동!
+        onClick={() => handleShowLocationOnMap(m.shop_name)}
       >
         {type === 'all' && (<div className="card-top-actions"><button className="btn-mini" onClick={(e) => { e.stopPropagation(); openEditModal(m, false); }}>✏️ 수정</button><button className="btn-mini danger" onClick={(e) => { e.stopPropagation(); setDeleteTargetId(m.id); setIsDeleteModalOpen(true); }} disabled={isDeleteRequested}>{isDeleteRequested ? '요청중' : '🗑️ 삭제'}</button></div>)}{isDeleteRequested && <div className="tag-deleted">🚨 삭제 요청 검토 중: {m.delete_reason || '사유 미상'}</div>}<div className="tag-container"><span className="tag">{CATEGORY_EMOJI[m.category] || m.category}</span><span className="tag tag-date">📅 {dateStr}</span>{type === 'all' && isPicked && <span className="tag tag-status">🎯 Pick 완료</span>}</div>
         
@@ -747,7 +741,6 @@ export default function LunchApp() {
         <h3 style={{margin: '5px 0 15px'}}>{m.menu_details}</h3>
         <div className="menu-details">📍 {m.price}</div>
         
-        {/* ✨ 버튼들 변경 (이벤트 전파 방지 적용) */}
         <div style={{display:'flex', gap: '6px', marginBottom: '15px', marginTop: '10px'}}>
           <a href={`https://map.naver.com/p/search/${encodeURIComponent(m.shop_name)}`} target="_blank" onClick={(e) => e.stopPropagation()} style={{flex: 1, textAlign: 'center', background: 'var(--bg-main-rgb)', color: 'var(--text-main)', border: '1px solid var(--border)', padding: '8px', borderRadius: '8px', fontWeight: '800', fontSize: '12px', textDecoration: 'none'}}>🗺️ 네이버 지도</a>
         </div>
