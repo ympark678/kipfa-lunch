@@ -56,7 +56,6 @@ export default function LunchApp() {
   const [isSearching, setIsSearching] = useState(false);
   
   const [isMapOpen, setIsMapOpen] = useState(false);
-  // ✨ 객체 형태로 변경되어 시간값(t)을 포함합니다.
   const [mapTargetShop, setMapTargetShop] = useState<{name: string, t: number} | null>(null);
   const [highlightedCardId, setHighlightedCardId] = useState<string | null>(null);
 
@@ -115,7 +114,7 @@ export default function LunchApp() {
     }
   }, [dateOptions]);
 
-  useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); setIsScrollDown(false); }, [activeTab]);
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); setIsScrollDown(false); setIsMapOpen(false); }, [activeTab]);
 
   useEffect(() => {
     let lastY = window.scrollY;
@@ -406,7 +405,6 @@ export default function LunchApp() {
     }
   };
 
-  // ✨ 클릭 시 무조건 시간을 갱신하여 100% 반응하게 만들기!
   const handleShowLocationOnMap = (shopName: string) => {
     setIsMapOpen(true); 
     setMapTargetShop({ name: shopName, t: Date.now() }); 
@@ -491,8 +489,8 @@ export default function LunchApp() {
         .pin-input:focus { border-color: #3498db; box-shadow: 0 0 0 4px rgba(52,152,219,0.1); }
         .btn { background-color: #3498db; color: white; border: none; padding: 14px 20px; font-size: 16px; border-radius: 10px; cursor: pointer; width: 100%; font-weight: 800; transition: 0.2s; box-shadow: 0 4px 6px rgba(52,152,219,0.2); } 
         .btn:active { transform: scale(0.96); } 
-        .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #3498db; color: white; padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 10000; animation: slideUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        @keyframes slideUp { from { bottom: -50px; opacity: 0; } to { bottom: 30px; opacity: 1; } }
+        .toast { position: fixed; top: 40px; left: 50%; transform: translateX(-50%); background: #3498db; color: white; padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 10000; animation: slideDown 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); white-space: nowrap; }
+        @keyframes slideDown { from { top: -20px; opacity: 0; } to { top: 40px; opacity: 1; } }
       `}</style>
       {toastMessage && <div className="toast">{toastMessage}</div>}
       <div className="container">
@@ -519,8 +517,7 @@ export default function LunchApp() {
         .ptr-icon.spinning { animation: spin 1s linear infinite; border: 3px solid var(--border); border-top: 3px solid #3498db; background: transparent; box-shadow: none; font-size: 0; }
         .container { max-width: 500px; margin: 0 auto; padding: 0 20px 90px 20px; } 
         
-        .sticky-top-area { position: sticky; top: 0; z-index: 9999; padding: 20px 20px 10px 20px; margin: 0 -20px; background: transparent; border-bottom: 1px solid transparent; transition: all 0.3s ease; }
-        .sticky-top-area.scrolled { background: rgba(var(--bg-main-rgb), 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
+        .sticky-top-area { position: sticky; top: 0; z-index: 9999; padding: 20px 20px 10px 20px; margin: 0 -20px; background: rgba(var(--bg-main-rgb), 0.90); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); box-shadow: 0 4px 20px rgba(0,0,0,0.05); transition: all 0.3s ease; }
         .section-title { position: sticky; top: var(--sticky-top); z-index: 9998; font-size: 16px; color: var(--text-main); border-bottom: 2px solid #3498db; padding: 15px 20px 10px 20px; margin: 0 -20px 15px -20px; font-weight: 800; letter-spacing: -0.5px; background: rgba(var(--bg-main-rgb), 0.90); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
         .filter-section { position: sticky; top: var(--sticky-top); z-index: 9998; padding: 10px 20px; margin: 0 -20px 15px -20px; display: flex; flex-direction: column; gap: 12px; background: rgba(var(--bg-main-rgb), 0.90); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         
@@ -584,15 +581,36 @@ export default function LunchApp() {
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .skeleton { background: var(--border); background: var(--skeleton-bg); border-radius: 5px; background-size: 200% 100%; animation: 1.5s shine linear infinite; }
         .skeleton-card { background: var(--card-bg); padding: 20px; border-radius: 16px; border: 1px solid var(--border); margin-bottom: 18px; }
-        .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #3498db; color: white; padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 10000; animation: slideUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); white-space: nowrap; }
+        .toast { position: fixed; top: 40px; left: 50%; transform: translateX(-50%); background: #3498db; color: white; padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 10000; animation: slideDown 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); white-space: nowrap; }
         .empty-state { text-align: center; padding: 50px 20px; background: var(--empty-bg); border-radius: 20px; border: 2px dashed var(--border); margin: 20px 0; animation: fadeIn 0.5s ease-out; }
         .empty-icon { font-size: 60px; margin-bottom: 15px; animation: float 3s ease-in-out infinite; }
         .empty-title { font-size: 18px; font-weight: 900; color: var(--text-main); margin-bottom: 8px; }
         .empty-desc { font-size: 14px; color: var(--text-sub); font-weight: 500; line-height: 1.5; }
         @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0px); } }
+        
+        /* ✨ 하단 중앙 플로팅 지도 토글 버튼 CSS */
+        .map-floating-toggle { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #2c3e50; color: white; border: none; padding: 14px 28px; border-radius: 30px; font-weight: 800; font-size: 15px; box-shadow: 0 6px 20px rgba(0,0,0,0.25); z-index: 9999; cursor: pointer; transition: 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+        .map-floating-toggle:active { transform: translateX(-50%) scale(0.95); }
+        .map-floating-toggle.open { background: white; color: #2c3e50; border: 2px solid #2c3e50; }
       `}</style>
 
       {toastMessage && <div className="toast">{toastMessage}</div>}
+      
+      {/* ✨ 에어비앤비 스타일 지도 토글 플로팅 버튼! */}
+      {session && (
+        <button 
+          className={`map-floating-toggle ${isMapOpen ? 'open' : ''}`}
+          onClick={() => {
+            setIsMapOpen(!isMapOpen);
+            if (!isMapOpen) {
+              setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 100);
+            }
+          }}
+        >
+          {isMapOpen ? '📄 목록 보기' : '🗺️ 지도 보기'}
+        </button>
+      )}
+
       <div className="ptr-container" style={{ transform: `translateY(${pullDistance > 0 ? pullDistance - 60 : -60}px)` }}>
         <div className={`ptr-icon ${isRefreshing ? 'spinning' : ''}`} style={{ transform: `rotate(${pullDistance * 2}deg)` }}>{!isRefreshing && '⬇️'}</div>
       </div>
@@ -604,26 +622,6 @@ export default function LunchApp() {
               <div><span id="user-info">👋 {session.name}님</span><button className="logout-btn" onClick={handleLogout}>로그아웃</button></div>
             </div>
             <div className="tabs"><div className={`tab ${activeTab === 'pick' ? 'active' : ''}`} onClick={() => setActiveTab('pick')}>📅 이번주/다음주 Pick</div><div className={`tab ${activeTab === 'all' ? 'active' : ''}`} onClick={() => setActiveTab('all')}>📂 전체 맛집 보기</div></div>
-            
-            <div style={{ textAlign: 'center', margin: '15px 0 5px 0' }}>
-              <button
-                onClick={() => setIsMapOpen(!isMapOpen)}
-                style={{
-                  background: isMapOpen ? '#3498db' : 'var(--card-bg)',
-                  color: isMapOpen ? 'white' : '#3498db',
-                  border: '2px solid #3498db',
-                  padding: '8px 20px',
-                  borderRadius: '30px',
-                  fontSize: '14px',
-                  fontWeight: '800',
-                  cursor: 'pointer',
-                  transition: '0.2s',
-                  boxShadow: '0 4px 10px rgba(52,152,219,0.1)'
-                }}
-              >
-                {isMapOpen ? '🗺️ 지도 닫기 ▲' : '🗺️ 지도로 보기 ▼'}
-              </button>
-            </div>
           </div>
           
           {isInitialLoading ? (
@@ -744,6 +742,8 @@ export default function LunchApp() {
         
         <div style={{display:'flex', gap: '6px', marginBottom: '15px', marginTop: '10px'}}>
           <a href={`https://map.naver.com/p/search/${encodeURIComponent(m.shop_name)}`} target="_blank" onClick={(e) => e.stopPropagation()} style={{flex: 1, textAlign: 'center', background: 'var(--bg-main-rgb)', color: 'var(--text-main)', border: '1px solid var(--border)', padding: '8px', borderRadius: '8px', fontWeight: '800', fontSize: '12px', textDecoration: 'none'}}>🗺️ 네이버 지도</a>
+          <button onClick={(e) => { e.stopPropagation(); handleShowLocationOnMap(m.shop_name); }} style={{flex: 1, textAlign: 'center', background: '#3498db15', color: '#3498db', border: '1px solid #3498db40', padding: '8px', borderRadius: '8px', fontWeight: '800', fontSize: '12px', cursor: 'pointer'}}>📍 지도 위치</button>
+          <a href={`nmap://route/walk?dname=${encodeURIComponent(m.shop_name)}&appname=KIPFA`} target="_blank" onClick={(e) => e.stopPropagation()} style={{flex: 1, textAlign: 'center', background: '#2ecc7115', color: '#27ae60', border: '1px solid #2ecc7140', padding: '8px', borderRadius: '8px', fontWeight: '800', fontSize: '12px', textDecoration: 'none'}}>🧭 앱으로 길찾기</a>
         </div>
         
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
