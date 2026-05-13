@@ -22,19 +22,28 @@ export default function NaverMap({
   const mapRef = useRef<any>(null);
   const markersRef = useRef<{ [key: string]: any }>({});
   const infoWindowsRef = useRef<{ [key: string]: any }>({});
-  const targetShopRef = useRef(targetShop?.name);
+  
+  // ✨ 버그 수정: 무한 스냅 현상 방지를 위한 큐(Queue) 메모리
+  const pendingPanRef = useRef<string | null>(null);
+  const lastPanTimeRef = useRef<number | null>(null);
   const geocodeCache = useRef<{ [key: string]: any }>({});
 
   useEffect(() => {
-    if (targetShop) {
-      targetShopRef.current = targetShop.name;
+    // 타겟 가게가 바뀌었을(새로 클릭했을) 때만 딱 한 번 실행됩니다!
+    if (targetShop && targetShop.t !== lastPanTimeRef.current) {
+      lastPanTimeRef.current = targetShop.t;
+      
       if (mapRef.current && markersRef.current[targetShop.name]) {
         const targetMarker = markersRef.current[targetShop.name];
         mapRef.current.panTo(targetMarker.getPosition());
+        
         Object.values(infoWindowsRef.current).forEach((iw: any) => iw.close());
         if (infoWindowsRef.current[targetShop.name]) {
           infoWindowsRef.current[targetShop.name].open(mapRef.current, targetMarker);
         }
+      } else {
+        // 아직 핀이 안 찍혔다면, 찍히는 즉시 이동하라고 메모를 남깁니다.
+        pendingPanRef.current = targetShop.name;
       }
     }
   }, [targetShop]);
@@ -42,40 +51,32 @@ export default function NaverMap({
   const initMap = () => {
     if (!window.naver || !window.naver.maps) return;
 
-    const initialLocation = new window.naver.maps.LatLng(37.5147, 127.1042);
-    const mapOptions = { center: initialLocation, zoom: 17, minZoom: 10 };
-    mapRef.current = new window.naver.maps.Map(mapElement.current, mapOptions);
-
-    const drawOfficeMarker = (point: any) => {
-      if (!targetShopRef.current) mapRef.current.setCenter(point);
-      // ✨ 사무실을 정확한 빨간 점과 텍스트로 표시
-      new window.naver.maps.Marker({
-        position: point,
-        map: mapRef.current,
-        zIndex: 999,
-        icon: {
-          content: `
-            <div style="display:flex; flex-direction:column; align-items:center;">
-              <div style="width:10px; height:10px; background:#ff4d4f; border-radius:50%; border:2px solid white; box-shadow:0 0 5px rgba(0,0,0,0.3);"></div>
-              <div style="margin-top:4px; background:rgba(44,62,80,0.9); color:white; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:900;">KIPFA</div>
-            </div>`,
-          anchor: new window.naver.maps.Point(25, 10),
-        }
-      });
+    // ✨ KIPFA 사무실의 정확한 절대 좌표 (송파구 올림픽로 293-19 현대타워 부근)
+    const officeLocation = new window.naver.maps.LatLng(37.516513, 127.100654);
+    
+    const mapOptions = {
+      center: officeLocation,
+      zoom: 16,
+      minZoom: 10,
     };
 
-    if (window.naver.maps.Service) {
-      window.naver.maps.Service.geocode({ query: '송파구 올림픽로 293-19' }, (status: any, response: any) => {
-        if (status === window.naver.maps.Service.Status.OK && response.v2.meta.totalCount > 0) {
-          const item = response.v2.addresses[0];
-          drawOfficeMarker(new window.naver.maps.Point(item.x, item.y));
-        } else {
-          drawOfficeMarker(initialLocation);
-        }
-      });
-    } else {
-      drawOfficeMarker(initialLocation);
-    }
+    mapRef.current = new window.naver.maps.Map(mapElement.current, mapOptions);
+
+    // ✨ 빨간 점과 KIPFA 글씨가 어우러진 직관적인 오피스 마커
+    new window.naver.maps.Marker({
+      position: officeLocation,
+      map: mapRef.current,
+      zIndex: 999, // 다른 마커보다 무조건 위에 표시
+      icon: {
+        content: `
+          <div style="width:60px; text-align:center; transform:translateY(-50%);">
+            <div style="width:14px; height:14px; background:#e74c3c; border-radius:50%; border:2px solid white; box-shadow:0 2px 4px rgba(0,0,0,0.3); margin:0 auto;"></div>
+            <div style="margin-top:4px; background:#2c3e50; color:white; padding:3px 6px; border-radius:6px; font-size:11px; font-weight:800; box-shadow:0 2px 4px rgba(0,0,0,0.2);">KIPFA</div>
+          </div>`,
+        anchor: new window.naver.maps.Point(30, 7), // 빨간 점 중앙을 정확히 좌표에 꽂음
+      }
+    });
+
     renderMarkers();
   };
 
@@ -87,9 +88,9 @@ export default function NaverMap({
     });
 
     const infoWindow = new window.naver.maps.InfoWindow({
-      content: `<div style="padding:12px; min-width:140px; font-family: Pretendard; cursor:pointer;" onclick="window.dispatchEvent(new CustomEvent('mapClick', {detail:'${menu.id}'}))">
-                   <div style="font-weight:900; font-size:14px; color:#333; margin-bottom:2px;">${menu.shop_name}</div>
-                   <div style="font-size:11px; color:#3498db; font-weight:700;">목록으로 이동 ➔</div>
+      content: `<div style="padding:12px; min-width:140px; font-family: Pretendard; cursor:pointer; text-align:center;">
+                   <div style="font-weight:900; font-size:15px; color:#333; margin-bottom:4px;">${menu.shop_name}</div>
+                   <div style="font-size:12px; color:#3498db; font-weight:800;">⬇️ 터치해서 목록 보기</div>
                 </div>`,
       borderWidth: 0,
       disableAnchor: true,
@@ -97,30 +98,36 @@ export default function NaverMap({
       pixelOffset: new window.naver.maps.Point(0, -10)
     });
 
+    // 지도에서 마커를 누르면 말풍선이 열리며 부드럽게 카드로 스크롤 이동
     window.naver.maps.Event.addListener(marker, "click", () => {
       Object.values(infoWindowsRef.current).forEach((iw: any) => iw.close());
       infoWindow.open(mapRef.current, marker);
-      if (onMarkerClick) onMarkerClick(menu.id); // ✨ 핀 클릭 시 목록 이동
+      if (onMarkerClick) onMarkerClick(menu.id); 
     });
 
     markersRef.current[menu.shop_name] = marker;
     infoWindowsRef.current[menu.shop_name] = infoWindow;
 
-    if (targetShopRef.current === menu.shop_name) {
+    // 만약 방금 밖에서 누른 카드가 이 마커라면 즉시 화면 이동!
+    if (pendingPanRef.current === menu.shop_name) {
       mapRef.current.panTo(point);
       Object.values(infoWindowsRef.current).forEach((iw: any) => iw.close());
       infoWindow.open(mapRef.current, marker);
+      pendingPanRef.current = null; // 처리 완료 후 큐 삭제
     }
   };
 
   const renderMarkers = () => {
     if (!mapRef.current || !window.naver?.maps?.Service) return;
+    
     Object.values(markersRef.current).forEach((marker: any) => marker.setMap(null));
-    markersRef.current = {}; infoWindowsRef.current = {};
+    markersRef.current = {}; 
+    infoWindowsRef.current = {};
 
     menus.forEach(menu => {
       const targetAddress = menu.road_address || menu.address;
       if (!targetAddress) return;
+
       if (geocodeCache.current[targetAddress]) {
         drawMarker(menu, geocodeCache.current[targetAddress]);
       } else {
