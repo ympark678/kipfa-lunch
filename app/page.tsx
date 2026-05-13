@@ -385,8 +385,6 @@ export default function LunchApp() {
       if (error) return showToast("🚨 오류: " + error.message);
 
       fetchMenus(true);
-      if (isCancel) showToast(isLike ? "🤍 좋아요가 취소되었습니다." : "👎 싫어요가 취소되었습니다.");
-      else showToast(isLike ? "❤️ 좋아요를 눌렀습니다!" : "💔 싫어요를 눌렀습니다.");
     } catch (e) { showToast("🚨 오류 발생"); } finally { setReactionLoading(null); }
   };
 
@@ -489,8 +487,8 @@ export default function LunchApp() {
         .pin-input:focus { border-color: #3498db; box-shadow: 0 0 0 4px rgba(52,152,219,0.1); }
         .btn { background-color: #3498db; color: white; border: none; padding: 14px 20px; font-size: 16px; border-radius: 10px; cursor: pointer; width: 100%; font-weight: 800; transition: 0.2s; box-shadow: 0 4px 6px rgba(52,152,219,0.2); } 
         .btn:active { transform: scale(0.96); } 
-        .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #3498db; color: white; padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 10000; animation: slideUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        @keyframes slideUp { from { bottom: -50px; opacity: 0; } to { bottom: 30px; opacity: 1; } }
+        .toast { position: fixed; top: 40px; left: 50%; transform: translateX(-50%); background: #3498db; color: white; padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 10000; animation: slideDown 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); white-space: nowrap; }
+        @keyframes slideDown { from { top: -20px; opacity: 0; } to { top: 40px; opacity: 1; } }
       `}</style>
       {toastMessage && <div className="toast">{toastMessage}</div>}
       <div className="container">
@@ -557,17 +555,12 @@ export default function LunchApp() {
         .tag-deleted { background: #e74c3c20; color: #e74c3c; width: 100%; text-align: center; margin-bottom: 12px; font-size: 13px; padding: 8px; border-radius: 8px; font-weight: 800; box-sizing: border-box; }
         .menu-details { font-size: 13px; color: var(--text-sub); line-height: 1.6; margin-bottom: 15px; background: rgb(var(--bg-main-rgb)); padding: 12px; border-radius: 10px; font-weight: 600; }
         
-        /* ✨ 좋아요/싫어요 알약(Pill) 디자인 전면 개편 */
         .reaction-group { display: flex; gap: 8px; }
-        .like-btn, .dislike-btn { 
-          background: #f8f9fa; color: #495057; border: 1px solid #e9ecef; 
-          padding: 6px 14px; border-radius: 20px; cursor: pointer; font-weight: 800; 
-          display: inline-flex; flex-direction: row; align-items: center; justify-content: center; 
-          gap: 6px; font-size: 13px; transition: all 0.2s ease; white-space: nowrap; 
-        }
-        .like-btn.liked { background: #ffe3e3; color: #fa5252; border-color: #ffc9c9; }
-        .dislike-btn.liked { background: #e9ecef; color: #495057; border-color: #dee2e6; }
+        .like-btn, .dislike-btn { background: #f8f9fa; color: #495057; border: 1px solid #e9ecef; padding: 6px 14px; border-radius: 20px; cursor: pointer; font-weight: 800; display: inline-flex; flex-direction: row; align-items: center; justify-content: center; gap: 6px; font-size: 13px; transition: all 0.2s ease; white-space: nowrap; }
+        .like-btn.liked { background: #e3f2fd; color: #228be6; border-color: #d0ebff; animation: heartPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .dislike-btn.liked { background: #ffe3e3; color: #fa5252; border-color: #ffc9c9; animation: heartPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .like-btn:disabled, .dislike-btn:disabled { opacity: 0.6; cursor: wait; }
+        @keyframes heartPop { 0% { transform: scale(0.9); } 50% { transform: scale(1.15); } 100% { transform: scale(1); } }
         
         .btn-outline { width: 100%; background: var(--card-bg); padding: 12px; font-size: 14px; font-weight: 800; border-radius: 10px; cursor: pointer; border: 1px solid #3498db; color: #3498db; margin-top: 15px; transition: 0.2s; }
         .btn-outline:active { background: #3498db20; transform: scale(0.98); }
@@ -748,23 +741,24 @@ export default function LunchApp() {
         <div style={{display:'flex', gap: '6px', marginBottom: '15px', marginTop: '10px'}}>
           <a href={`https://map.naver.com/p/search/${encodeURIComponent(m.shop_name)}`} target="_blank" onClick={(e) => e.stopPropagation()} style={{flex: 1, textAlign: 'center', background: 'var(--bg-main-rgb)', color: 'var(--text-main)', border: '1px solid var(--border)', padding: '8px', borderRadius: '8px', fontWeight: '800', fontSize: '12px', textDecoration: 'none'}}>🗺️ 네이버 지도</a>
           <button onClick={(e) => { e.stopPropagation(); handleShowLocationOnMap(m.shop_name); }} style={{flex: 1, textAlign: 'center', background: '#3498db15', color: '#3498db', border: '1px solid #3498db40', padding: '8px', borderRadius: '8px', fontWeight: '800', fontSize: '12px', cursor: 'pointer'}}>📍 지도 위치</button>
-          <a href={`nmap://route/walk?dname=${encodeURIComponent(m.shop_name)}&appname=KIPFA`} target="_blank" onClick={(e) => e.stopPropagation()} style={{flex: 1, textAlign: 'center', background: '#2ecc7115', color: '#27ae60', border: '1px solid #2ecc7140', padding: '8px', borderRadius: '8px', fontWeight: '800', fontSize: '12px', textDecoration: 'none'}}>🧭 앱으로 길찾기</a>
         </div>
         
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
           <div style={{fontSize: '12px', color: 'var(--text-sub)', fontWeight: '600'}}>📍 {m.address || '주소 정보 없음'}</div>
           {type === 'pick' ? (
             <div className="reaction-group">
-              {/* ✨ 좋아요/싫어요 알약 디자인! */}
               <button className={`like-btn ${likes.includes(session?.pin as string) ? 'liked' : ''}`} onClick={(e) => { e.stopPropagation(); toggleReaction(m.id, 'toggle_like'); }} disabled={isLiking || isDisliking}>
-                {isLiking ? '⏳' : (likes.includes(session?.pin as string) ? '❤️' : '🤍')} {likes.length}
+                👍 {likes.length}
               </button>
               <button className={`dislike-btn ${dislikes.includes(session?.pin as string) ? 'liked' : ''}`} onClick={(e) => { e.stopPropagation(); toggleReaction(m.id, 'toggle_dislike'); }} disabled={isLiking || isDisliking}>
-                {isDisliking ? '⏳' : (dislikes.includes(session?.pin as string) ? '💔' : '👎')} {dislikes.length}
+                👎 {dislikes.length}
               </button>
             </div>
           ) : (
-            <span style={{fontSize:'12px', color:'#e74c3c', fontWeight:'800', background:'#ffe3e3', border:'1px solid #ffc9c9', padding:'6px 12px', borderRadius:'20px'}}>❤️ 좋아요 {likes.length}개</span>
+            <div className="reaction-group">
+              <span className="like-btn" style={{cursor: 'default'}}>👍 {likes.length}</span>
+              <span className="dislike-btn" style={{cursor: 'default'}}>👎 {dislikes.length}</span>
+            </div>
           )}
         </div>
         
