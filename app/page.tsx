@@ -403,17 +403,6 @@ export default function LunchApp() {
       .catch(() => showToast("🚨 복사 실패"));
   };
 
-  const handleMapMarkerClick = (shopId: string) => {
-    const cardElement = document.getElementById(`shop-card-${shopId}`);
-    if (cardElement) {
-      const yOffset = -150;
-      const y = cardElement.getBoundingClientRect().top + window.scrollY + yOffset;
-      window.scrollTo({ top: y, behavior: 'smooth' });
-      setHighlightedCardId(shopId);
-      setTimeout(() => setHighlightedCardId(null), 2000);
-    }
-  };
-
   const handleShowLocationOnMap = (shopName: string) => {
     setIsMapOpen(true);
     setMapTargetShop({ name: shopName, t: Date.now() });
@@ -551,12 +540,10 @@ export default function LunchApp() {
         .tab { flex: 1; padding: 12px; text-align: center; background: #fff; border-radius: 10px; cursor: pointer; font-weight: 800; font-size: 14px; color: #888; border: 1px solid #eee; }
         .tab.active { background: #3498db; color: white; border-color: #3498db; }
         
-        /* ✨ 타이틀 디자인 원상복구 */
         .section-title { position: sticky; top: var(--sticky-top); z-index: 9998; font-size: 16px; color: var(--text-main); border-bottom: 2px solid #3498db; padding: 15px 20px 10px 20px; margin: 0 -20px 15px -20px; font-weight: 800; letter-spacing: -0.5px; background: rgba(var(--bg-main-rgb), 0.90); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
         .filter-section { position: sticky; top: var(--sticky-top); z-index: 9998; padding: 10px 20px; margin: 0 -20px 15px -20px; display: flex; flex-direction: column; gap: 12px; background: rgba(var(--bg-main-rgb), 0.90); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .filter-section.hidden { transform: translateY(-150%); pointer-events: none; }
         
-        /* ✨ 카테고리 스와이프 복구 */
         .pill-scroll-container { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; width: 100%; }
         .pill-scroll-container::-webkit-scrollbar { display: none; }
         .pill-btn { flex-shrink: 0; padding: 8px 16px; border-radius: 30px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-sub); font-weight: 700; font-size: 14px; white-space: nowrap; cursor: pointer; transition: 0.2s; }
@@ -689,7 +676,6 @@ export default function LunchApp() {
                       <option value="likes">❤️ 인기순</option>
                     </select>
                   </div>
-                  {/* ✨ 가로 스와이프 기능 완벽 복구 */}
                   <div className="pill-scroll-container" onTouchStart={e => e.stopPropagation()} onTouchMove={e => e.stopPropagation()}>
                     <button className={`pill-btn ${categoryFilter === 'all' ? 'active' : ''}`} onClick={() => setCategoryFilter('all')}>🏷️ 전체</button>
                     {Object.keys(CATEGORY_EMOJI).map(c => (
@@ -709,7 +695,6 @@ export default function LunchApp() {
       )}
       <button onClick={openAddModal} style={{ position: 'fixed', bottom: '30px', right: '20px', width: '56px', height: '56px', borderRadius: '50%', background: '#3498db', color: 'white', border: 'none', fontSize: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', zIndex: 9998 }}>＋</button>
 
-      {/* 모달 창들 */}
       {isRouletteOpen && (
         <div className="modal" onClick={() => !isSpinning && setIsRouletteOpen(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ textAlign: 'center' }}>
@@ -736,8 +721,11 @@ export default function LunchApp() {
             <div className="form-group" style={{ background: '#f8f9fa', padding: '15px', borderRadius: '12px' }}>
               <label>🔍 네이버에서 찾기</label>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <input type="text" placeholder="예: 돈까스" value={keyword} onChange={e => setKeyword(e.target.value)} onKeyDown={e => e.key === 'Enter' && searchShop()} />
-                <button onClick={searchShop} style={{ background: '#3498db', color: 'white', border: 'none', padding: '0 15px', borderRadius: '8px', fontWeight: 800 }}>검색</button>
+                <input type="text" placeholder="예: 돈까스" value={keyword} onChange={e => setKeyword(e.target.value)} onKeyDown={e => e.key === 'Enter' && searchShop()} style={{ flex: 1 }} />
+                {/* ✨ 텍스트 대신 돋보기 아이콘으로 변경하고 세로 꺾임 방지 처리 */}
+                <button onClick={searchShop} style={{ background: '#3498db', color: 'white', border: 'none', width: '46px', height: '46px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                   <span style={{ fontSize: '20px' }}>🔍</span>
+                </button>
               </div>
               {searchResults.length > 0 && (
                 <div className="search-res">
@@ -827,13 +815,9 @@ export default function LunchApp() {
         <p style={{ margin: 0, color: '#555', fontSize: '14px', fontWeight: 600 }}>{m.menu_details}</p>
         
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '15px' }}>
-          
-          {/* ✨ 절대 깨지지 않는 공식 네이버 지도 아이콘 로고 적용 완료 */}
           <a href={m.shop_url} target="_blank" onClick={e => e.stopPropagation()} className="naver-map-btn">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M16.0718 0H7.92817C3.54921 0 0 3.54921 0 7.92817V16.0718C0 20.4508 3.54921 24 7.92817 24H16.0718C20.4508 24 24 20.4508 24 16.0718V7.92817C24 3.54921 20.4508 0 16.0718 0Z" fill="#03C75A"/>
-              <path d="M16.9242 17.5255H13.6702L9.42152 11.2335V17.5255H6.38818V6.47449H9.64219L13.8909 12.7665V6.47449H16.9242V17.5255Z" fill="white"/>
-            </svg>
+            {/* ✨ CSS로 만든 절대 깨지지 않는 N 로고 */}
+            <span style={{ background: '#03C75A', color: 'white', padding: '2px 5px', borderRadius: '4px', fontWeight: 900, fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>N</span>
             네이버 지도
           </a>
 
