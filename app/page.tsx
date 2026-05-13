@@ -8,8 +8,15 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzRoJPOYW8FB1Ck69hOl56aluBxNDjUAPewlsTEgIvK39y6hShhx4SU6K2enx0R29NLAQ/exec";
+
 const CATEGORY_EMOJI: Record<string, string> = {
-  "한식": "🍚 한식", "중식": "🥢 중식", "일식": "🍣 일식", "양식": "🍝 양식", "분식": "🥘 분식", "기타": "🍽️ 기타"
+  "한식": "🍚 한식",
+  "중식": "🥢 중식",
+  "일식": "🍣 일식",
+  "양식": "🍝 양식",
+  "분식": "🥘 분식",
+  "기타": "🍽️ 기타"
 };
 
 const mapCategory = (naverCategory: string) => {
@@ -22,46 +29,40 @@ const mapCategory = (naverCategory: string) => {
 };
 
 export default function LunchApp() {
+  const [session, setSession] = useState<{ pin: string, name: string } | null>(null);
   const [pin, setPin] = useState("");
-  const [session, setSession] = useState<{pin: string, name: string} | null>(null);
   const [menus, setMenus] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<"pick" | "all">("pick");
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
-  const [reactionLoading, setReactionLoading] = useState<{id: string, type: string} | null>(null);
+  const [reactionLoading, setReactionLoading] = useState<{ id: string, type: string } | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [sortOption, setSortOption] = useState<"latest" | "likes">("latest");
-  
+
   const headerRef = useRef<HTMLDivElement>(null);
   const [stickyTop, setStickyTop] = useState(135);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isScrollDown, setIsScrollDown] = useState(false);
-  
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"add" | "edit" | "repick">("add");
   const [editTargetId, setEditTargetId] = useState<string | null>(null);
-  
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
-  const [deleteReason, setDeleteReason] = useState("폐업/이전");
 
   const [keyword, setKeyword] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  
+
   const [isMapOpen, setIsMapOpen] = useState(false);
-  const [mapTargetShop, setMapTargetShop] = useState<{name: string, t: number} | null>(null);
+  const [mapTargetShop, setMapTargetShop] = useState<{ name: string, t: number } | null>(null);
   const [highlightedCardId, setHighlightedCardId] = useState<string | null>(null);
 
-  // ✨ 가격대와 URL이 삭제된 초슬림 폼 데이터
-  const [formData, setFormData] = useState({
-    visitDate: "", category: "한식", shopName: "", shopUrl: "", address: "", road_address: "",
-    menu1: "", menu2: "", menu3: ""
-  });
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [deleteReason, setDeleteReason] = useState("폐업/이전");
 
   const [isRouletteOpen, setIsRouletteOpen] = useState(false);
   const [rouletteResult, setRouletteResult] = useState<any>(null);
@@ -71,34 +72,58 @@ export default function LunchApp() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const touchStartY = useRef(0);
 
-  const dateOptions = useMemo(() => {
-    let today = new Date(); today.setHours(0,0,0,0);
-    let day = today.getDay(); let diff = today.getDate() - day + (day === 0 ? -6 : 1);
-    let start = new Date(today); start.setDate(diff);
-    
-    const offsets = [{d: 2, l: '이번주 수'}, {d: 4, l: '이번주 금'}, {d: 9, l: '다음주 수'}, {d: 11, l: '다음주 금'}];
-    return offsets.map(o => {
-      let d = new Date(start); d.setDate(start.getDate() + o.d);
-      if (d >= today) {
-        let f = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-        return { label: `[${o.l}] ${f}`, value: f };
-      }
-      return null;
-    }).filter(Boolean) as {label: string, value: string}[];
-  }, []);
+  // ✨ 슬림해진 입력 폼 데이터 (가격대, URL 삭제됨)
+  const [formData, setFormData] = useState({
+    visitDate: "",
+    category: "한식",
+    shopName: "",
+    shopUrl: "",
+    address: "",
+    road_address: "",
+    menu1: "",
+    menu2: "",
+    menu3: ""
+  });
 
   const showToast = (message: string) => {
     setToastMessage(message);
     setTimeout(() => setToastMessage(null), 3500);
   };
 
+  const dateOptions = useMemo(() => {
+    let today = new Date();
+    today.setHours(0, 0, 0, 0);
+    let day = today.getDay();
+    let diff = today.getDate() - day + (day === 0 ? -6 : 1);
+    let start = new Date(today);
+    start.setDate(diff);
+
+    const offsets = [
+      { d: 2, l: '이번주 수' },
+      { d: 4, l: '이번주 금' },
+      { d: 9, l: '다음주 수' },
+      { d: 11, l: '다음주 금' }
+    ];
+    return offsets.map(o => {
+      let d = new Date(start);
+      d.setDate(start.getDate() + o.d);
+      if (d >= today) {
+        let f = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        return { label: `[${o.l}] ${f}`, value: f };
+      }
+      return null;
+    }).filter(Boolean) as { label: string, value: string }[];
+  }, []);
+
   useEffect(() => {
     const savedPin = localStorage.getItem("lunchUserPin");
     const savedName = localStorage.getItem("lunchUserName");
-    if (savedPin && savedName) { 
-      setSession({ pin: savedPin, name: savedName }); 
-      fetchMenus(); 
-    } else { setIsInitialLoading(false); }
+    if (savedPin && savedName) {
+      setSession({ pin: savedPin, name: savedName });
+      fetchMenus();
+    } else {
+      setIsInitialLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -107,15 +132,22 @@ export default function LunchApp() {
     }
   }, [dateOptions]);
 
-  useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); setIsScrollDown(false); setIsMapOpen(false); }, [activeTab]);
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setIsScrollDown(false);
+    setIsMapOpen(false);
+  }, [activeTab]);
 
   useEffect(() => {
     let lastY = window.scrollY;
     const handleScroll = () => {
       const currentY = window.scrollY;
       setIsScrolled(currentY > 10);
-      if (currentY > 50 && currentY > lastY + 15) setIsScrollDown(true);
-      else if (currentY < lastY - 15 || currentY <= 50) setIsScrollDown(false);
+      if (currentY > 50 && currentY > lastY + 15) {
+        setIsScrollDown(true);
+      } else if (currentY < lastY - 15 || currentY <= 50) {
+        setIsScrollDown(false);
+      }
       lastY = currentY;
     };
     window.addEventListener("scroll", handleScroll, { passive: true });
@@ -123,35 +155,41 @@ export default function LunchApp() {
   }, []);
 
   useEffect(() => {
-    const updateStickyGap = () => { if (headerRef.current) setStickyTop(Math.floor(headerRef.current.getBoundingClientRect().height) - 1); };
-    if (session) { updateStickyGap(); window.addEventListener("resize", updateStickyGap); }
+    const updateStickyGap = () => {
+      if (headerRef.current) {
+        setStickyTop(Math.floor(headerRef.current.getBoundingClientRect().height) - 1);
+      }
+    };
+    if (session) {
+      updateStickyGap();
+      window.addEventListener("resize", updateStickyGap);
+    }
     return () => window.removeEventListener("resize", updateStickyGap);
   }, [session, activeTab]);
 
   const fetchMenus = async (silent = false) => {
     if (!silent && menus.length === 0 && !isRefreshing) setIsInitialLoading(true);
-    if (!silent && menus.length > 0 && !isRefreshing) setIsLoading(true);
-
     try {
       const { data, error } = await supabase.from('menus').select('*').order('created_at', { ascending: false });
       if (error) throw error;
       if (data) setMenus(data);
-    } catch (e) { 
-      showToast("🚨 데이터 로딩 실패"); 
-    } finally { 
-      setIsInitialLoading(false); setIsLoading(false); setIsRefreshing(false); setPullDistance(0);
+    } catch (e) {
+      showToast("🚨 데이터 로딩 실패");
+    } finally {
+      setIsInitialLoading(false);
+      setIsLoading(false);
+      setIsRefreshing(false);
+      setPullDistance(0);
     }
   };
 
   const searchShop = async () => {
     if (!keyword.trim()) return;
     setIsSearching(true);
-
     let finalKeyword = keyword.trim();
     if (!finalKeyword.includes('송파') && !finalKeyword.includes('잠실') && !finalKeyword.includes('방이') && !finalKeyword.includes('가락')) {
       finalKeyword = `송파구 ${finalKeyword}`;
     }
-
     try {
       const res = await fetch(`/api/search?query=${encodeURIComponent(finalKeyword)}`);
       const data = await res.json();
@@ -169,8 +207,8 @@ export default function LunchApp() {
     setFormData(prev => ({
       ...prev,
       shopName: cleanTitle,
-      shopUrl: `https://map.naver.com/v5/search/${encodeURIComponent(cleanTitle)}`,
       category: mapCategory(item.category),
+      shopUrl: `https://map.naver.com/v5/search/${encodeURIComponent(cleanTitle)}`,
       address: item.address || '',
       road_address: item.roadAddress || ''
     }));
@@ -194,12 +232,18 @@ export default function LunchApp() {
       } else {
         showToast("❌ 등록되지 않은 번호입니다.");
       }
-    } catch (e) { showToast("🚨 서버 연결 실패"); } finally { setIsLoading(false); }
+    } catch (e) {
+      showToast("🚨 서버 연결 실패");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("lunchUserPin"); localStorage.removeItem("lunchUserName");
-    setSession(null); setPin("");
+    localStorage.removeItem("lunchUserPin");
+    localStorage.removeItem("lunchUserName");
+    setSession(null);
+    setPin("");
   };
 
   const checkDuplicate = (type: 'name' | 'url', value: string) => {
@@ -211,7 +255,9 @@ export default function LunchApp() {
       return target.includes(search) || search.includes(target);
     });
     if (found && confirm(`이미 등록된 맛집인 것 같아요. [${found.shop_name}]\n정보를 불러올까요?`)) {
-      fillFormWithData(found); setModalMode('edit'); setEditTargetId(found.id);
+      fillFormWithData(found);
+      setModalMode('edit');
+      setEditTargetId(found.id);
     }
   };
 
@@ -221,32 +267,52 @@ export default function LunchApp() {
     if (formattedDate && formattedDate.includes('.')) formattedDate = formattedDate.replace(/\./g, '-');
 
     setFormData(prev => ({
-      ...prev, category: m.category || '한식', shopName: m.shop_name || '', shopUrl: m.shop_url || '',
-      visitDate: formattedDate, address: m.address || '', road_address: m.road_address || '',
-      menu1: ms[0] || '', menu2: ms[1] || '', menu3: ms[2] || ''
+      ...prev,
+      category: m.category || '한식',
+      shopName: m.shop_name || '',
+      shopUrl: m.shop_url || '',
+      visitDate: formattedDate,
+      address: m.address || '',
+      road_address: m.road_address || '',
+      menu1: ms[0] || '',
+      menu2: ms[1] || '',
+      menu3: ms[2] || ''
     }));
   };
 
   const openAddModal = () => {
-    setModalMode("add"); setEditTargetId(null);
-    setFormData({ visitDate: dateOptions[0]?.value || "", category: "한식", shopName: "", shopUrl: "", address: "", road_address: "", menu1: "", menu2: "", menu3: "" });
+    setModalMode("add");
+    setEditTargetId(null);
+    setFormData({
+      visitDate: dateOptions[0]?.value || "",
+      category: "한식",
+      shopName: "",
+      shopUrl: "",
+      address: "",
+      road_address: "",
+      menu1: "",
+      menu2: "",
+      menu3: ""
+    });
     setIsModalOpen(true);
   };
 
   const openEditModal = (m: any, isRepick = false) => {
-    setModalMode(isRepick ? "repick" : "edit"); setEditTargetId(isRepick ? null : m.id);
+    setModalMode(isRepick ? "repick" : "edit");
+    setEditTargetId(isRepick ? null : m.id);
     fillFormWithData(m);
     if (!isRepick) {
-        let vd = m.visit_date;
-        if(vd && vd.includes('.')) vd = vd.replace(/\./g, '-');
-        setFormData(prev => ({ ...prev, visitDate: vd }));
+      let vd = m.visit_date;
+      if (vd && vd.includes('.')) vd = vd.replace(/\./g, '-');
+      setFormData(prev => ({ ...prev, visitDate: vd }));
+    } else {
+      setFormData(prev => ({ ...prev, visitDate: dateOptions[0]?.value || "" }));
     }
-    else setFormData(prev => ({ ...prev, visitDate: dateOptions[0]?.value || "" }));
     setIsModalOpen(true);
   };
 
   const handleModalSubmit = async () => {
-    if (!formData.shopName.trim() || !formData.menu1.trim()) return showToast("⚠️ 가게명과 메뉴 1개는 필수 입력입니다.");
+    if (!formData.shopName.trim() || !formData.menu1.trim()) return showToast("⚠️ 가게명과 메뉴 1개는 필수입니다.");
     const cleanDate = formData.visitDate.replace(/\./g, '-').trim();
 
     const duplicate = menus.find(m => {
@@ -262,11 +328,16 @@ export default function LunchApp() {
     const autoUrl = formData.shopUrl || `https://map.naver.com/v5/search/${encodeURIComponent(formData.shopName)}`;
     
     try {
-      const payload = { 
-        author: session?.name, visit_date: cleanDate, category: formData.category, shop_name: formData.shopName.trim(), 
-        shop_url: autoUrl, 
-        menu_details: combinedMenus, price: "", // 가격 필드 제거됨
-        address: formData.address, road_address: formData.road_address
+      const payload = {
+        author: session?.name,
+        visit_date: cleanDate,
+        category: formData.category,
+        shop_name: formData.shopName.trim(),
+        shop_url: autoUrl,
+        menu_details: combinedMenus,
+        price: "", // 가격 필드는 삭제됨
+        address: formData.address,
+        road_address: formData.road_address
       };
 
       if (modalMode === "edit" && editTargetId) {
@@ -276,16 +347,27 @@ export default function LunchApp() {
       }
       
       showToast(modalMode === "edit" ? "✨ 수정 완료!" : "✨ 추천 완료!");
-      setIsModalOpen(false); fetchMenus(true);
-    } catch (e: any) { showToast("🚨 통신 오류: " + e.message); } finally { setIsLoading(false); }
+      setIsModalOpen(false);
+      fetchMenus(true);
+    } catch (e: any) {
+      showToast("🚨 통신 오류: " + e.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const submitDeleteRequest = async () => {
-    setIsLoading(true); setIsDeleteModalOpen(false);
+    setIsLoading(true);
+    setIsDeleteModalOpen(false);
     try {
       await supabase.from('menus').update({ delete_requested: 'Y', delete_reason: deleteReason }).eq('id', deleteTargetId);
-      showToast("🗑️ 삭제 요청 접수!"); fetchMenus(true);
-    } catch (e) { showToast("🚨 오류 발생"); } finally { setIsLoading(false); }
+      showToast("🗑️ 삭제 요청 접수!");
+      fetchMenus(true);
+    } catch (e) {
+      showToast("🚨 오류 발생");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const toggleReaction = async (id: string, action: string) => {
@@ -296,51 +378,64 @@ export default function LunchApp() {
 
       let isLike = action === 'toggle_like';
       let listStr = String(isLike ? (targetMenu.likes || '') : (targetMenu.dislikes || ''));
-      let arr = listStr.split(',').filter((x: string) => x.trim() !== '');
+      let arr = listStr.split(',').filter(Boolean);
       
       let isCancel = arr.includes(session?.pin as string);
-      if (isCancel) arr = arr.filter(p => p !== session?.pin);
-      else arr.push(session?.pin as string);
+      if (isCancel) {
+        arr = arr.filter(p => p !== session?.pin);
+      } else {
+        arr.push(session?.pin as string);
+      }
 
       const updateData = isLike ? { likes: arr.join(',') } : { dislikes: arr.join(',') };
       await supabase.from('menus').update(updateData).eq('id', id);
 
       fetchMenus(true);
-    } catch (e) { showToast("🚨 오류 발생"); } finally { setReactionLoading(null); }
+    } catch (e) {
+      showToast("🚨 오류 발생");
+    } finally {
+      setReactionLoading(null);
+    }
   };
 
   const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text).then(() => showToast("📋 링크가 복사되었습니다!")).catch(() => showToast("🚨 복사 실패"));
+    navigator.clipboard.writeText(text)
+      .then(() => showToast("📋 링크가 복사되었습니다!"))
+      .catch(() => showToast("🚨 복사 실패"));
   };
 
   const handleMapMarkerClick = (shopId: string) => {
     const cardElement = document.getElementById(`shop-card-${shopId}`);
     if (cardElement) {
-      const yOffset = -150; 
+      const yOffset = -150;
       const y = cardElement.getBoundingClientRect().top + window.scrollY + yOffset;
       window.scrollTo({ top: y, behavior: 'smooth' });
       setHighlightedCardId(shopId);
-      setTimeout(() => setHighlightedCardId(null), 2000); 
+      setTimeout(() => setHighlightedCardId(null), 2000);
     }
   };
 
-  // ✨ 카드 전체를 눌렀을 때, 무조건 화면 최상단으로 슉! 올라가며 지도 오픈
   const handleShowLocationOnMap = (shopName: string) => {
-    setIsMapOpen(true); 
-    setMapTargetShop({ name: shopName, t: Date.now() }); 
+    setIsMapOpen(true);
+    setMapTargetShop({ name: shopName, t: Date.now() });
     setTimeout(() => {
-      window.scrollTo({ top: 0, behavior: 'smooth' }); 
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }, 100);
   };
 
   const filteredData = useMemo(() => {
-    const today = new Date(); today.setHours(0,0,0,0);
-    const day = today.getDay(); const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const day = today.getDay();
+    const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+    
     const thisS = new Date(today); thisS.setDate(diff);
     const nextS = new Date(thisS); nextS.setDate(thisS.getDate() + 7);
     const nextN = new Date(nextS); nextN.setDate(nextS.getDate() + 7);
 
-    const tw: any[] = []; const nw: any[] = []; const pickNames: string[] = [];
+    const tw: any[] = [];
+    const nw: any[] = [];
+    const pickNames: string[] = [];
     
     menus.forEach(m => {
       if (!m.visit_date) return;
@@ -348,7 +443,8 @@ export default function LunchApp() {
       const d = new Date(`${cleanDateStr}T00:00:00`);
       
       if (d >= thisS && d < nextN) pickNames.push(String(m.shop_name).replace(/\s/g, ""));
-      if (d >= thisS && d < nextS) tw.push(m); else if (d >= nextS && d < nextN) nw.push(m);
+      if (d >= thisS && d < nextS) tw.push(m);
+      else if (d >= nextS && d < nextN) nw.push(m);
     });
 
     const uniqueMap = new Map();
@@ -362,316 +458,369 @@ export default function LunchApp() {
       if (sortOption === 'likes') {
         const likesA = String(a.likes || '').split(',').filter(Boolean).length;
         const likesB = String(b.likes || '').split(',').filter(Boolean).length;
-        return likesB - likesA; 
+        return likesB - likesA;
       }
-      return 0; 
+      return 0;
     });
+    
     return { tw, nw, allF, pickNames };
   }, [menus, searchQuery, categoryFilter, sortOption]);
 
   const spinRoulette = () => {
     const pickList = [...filteredData.tw, ...filteredData.nw];
     if (pickList.length === 0) return showToast("⚠️ 추천된 회식 후보가 없습니다.");
-    setIsRouletteOpen(true); setIsSpinning(true);
+    setIsRouletteOpen(true);
+    setIsSpinning(true);
+    
     let count = 0;
     const interval = setInterval(() => {
       const randomIndex = Math.floor(Math.random() * pickList.length);
       setRouletteResult(pickList[randomIndex]);
       count++;
-      if (count > 15) { clearInterval(interval); setIsSpinning(false); }
+      if (count > 15) {
+        clearInterval(interval);
+        setIsSpinning(false);
+      }
     }, 100);
   };
 
-  const handleTouchStart = (e: any) => { if (window.scrollY === 0) touchStartY.current = e.touches[0].clientY; };
+  const handleTouchStart = (e: any) => {
+    if (window.scrollY === 0) touchStartY.current = e.touches[0].clientY;
+  };
+  
   const handleTouchMove = (e: any) => {
     if (touchStartY.current > 0 && window.scrollY === 0) {
-      const y = e.touches[0].clientY; const diff = y - touchStartY.current;
-      if (diff > 0 && diff < 150) setPullDistance(diff * 0.4); 
+      const y = e.touches[0].clientY;
+      const diff = y - touchStartY.current;
+      if (diff > 0 && diff < 150) setPullDistance(diff * 0.4);
     }
   };
+  
   const handleTouchEnd = () => {
-    if (pullDistance > 40) { setIsRefreshing(true); fetchMenus(); } 
-    else { setPullDistance(0); }
+    if (pullDistance > 40) {
+      setIsRefreshing(true);
+      fetchMenus();
+    } else {
+      setPullDistance(0);
+    }
     touchStartY.current = 0;
   };
 
+  // 로그인되지 않은 화면
   if (!session) return (
-    <>
-      <style>{`
-        @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
-        :root { --bg-main-rgb: 247, 249, 250; --text-main: #2c3e50; --border: #e1e5e8; --input-bg: #ffffff; }
-        @media (prefers-color-scheme: dark) { :root { --bg-main-rgb: 18, 18, 18; --text-main: #e0e0e0; --border: #333333; --input-bg: #2c2c2c; } }
-        body { font-family: 'Pretendard', sans-serif; background-color: rgb(var(--bg-main-rgb)); margin: 0; padding: 0; color: var(--text-main); } 
-        .container { max-width: 500px; margin: 0 auto; padding: 0 20px 90px 20px; text-align: center; margin-top: 100px; } 
-        input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-        input[type="number"] { -moz-appearance: textfield; }
-        .pin-input { font-size: 24px; padding: 12px; width: 160px; text-align: center; border: 2px solid var(--border); border-radius: 12px; margin-bottom: 25px; letter-spacing: 5px; background: var(--input-bg); color: var(--text-main); outline: none; transition: 0.3s; }
-        .pin-input:focus { border-color: #3498db; box-shadow: 0 0 0 4px rgba(52,152,219,0.1); }
-        .btn { background-color: #3498db; color: white; border: none; padding: 14px 20px; font-size: 16px; border-radius: 10px; cursor: pointer; width: 100%; font-weight: 800; transition: 0.2s; box-shadow: 0 4px 6px rgba(52,152,219,0.2); } 
-        .btn:active { transform: scale(0.96); } 
-        .toast { position: fixed; top: 40px; left: 50%; transform: translateX(-50%); background: #2c3e50; color: white; padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 10000; animation: slideDown 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); white-space: nowrap; }
-        @keyframes slideDown { from { top: -20px; opacity: 0; } to { top: 40px; opacity: 1; } }
-      `}</style>
-      {toastMessage && <div className="toast">{toastMessage}</div>}
-      <div className="container">
-        <h1 style={{marginBottom: '10px', fontSize: '26px', fontWeight: '900', letterSpacing: '-1px'}}>🏢 KIPFA 점심 추천</h1>
-        <p style={{color:'var(--text-main)', opacity: 0.7, marginBottom:'30px', fontWeight: '500'}}>휴대폰 뒷자리 4자리를 입력하세요</p>
-        <input type="number" className="pin-input" placeholder="0000" value={pin} onChange={e => setPin(e.target.value.slice(0,4))} onKeyDown={e => e.key === 'Enter' && handleLogin()} />
-        <button className="btn" onClick={handleLogin}>{isLoading ? "확인 중..." : "입장하기"}</button>
-      </div>
-    </>
+    <div className="container" style={{ maxWidth: '400px', margin: '100px auto', textAlign: 'center', padding: '20px' }}>
+      <h2 style={{ fontWeight: 900, marginBottom: '30px' }}>🏢 KIPFA 점심 추천</h2>
+      {toastMessage && (
+        <div className="toast" style={{ position: 'fixed', top: '40px', left: '50%', transform: 'translateX(-50%)', background: '#2c3e50', color: 'white', padding: '12px 24px', borderRadius: '30px', fontWeight: 700, zIndex: 100000, boxShadow: '0 10px 20px rgba(0,0,0,0.2)' }}>
+          {toastMessage}
+        </div>
+      )}
+      <input 
+        type="number" 
+        className="pin-input" 
+        placeholder="0000" 
+        value={pin} 
+        onChange={e => setPin(e.target.value.slice(0, 4))} 
+        onKeyDown={e => e.key === 'Enter' && handleLogin()}
+        style={{ fontSize: '24px', padding: '12px', width: '140px', textAlign: 'center', border: '2px solid #ddd', borderRadius: '12px', marginBottom: '20px' }} 
+      />
+      <button 
+        className="btn" 
+        onClick={handleLogin} 
+        style={{ background: '#3498db', color: 'white', width: '100%', padding: '14px', borderRadius: '12px', border: 'none', fontWeight: 800 }}
+      >
+        {isLoading ? "확인중..." : "입장하기"}
+      </button>
+    </div>
   );
 
+  // 메인 화면 렌더링
   return (
     <>
       <style>{`
         @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
-        :root { --bg-main-rgb: 247, 249, 250; --text-main: #2c3e50; --text-sub: #7f8c8d; --card-bg: #ffffff; --border: #e1e5e8; --input-bg: #ffffff; --skeleton-bg: linear-gradient(110deg, #ececec 8%, #f5f5f5 18%, #ececec 33%); --modal-bg: #ffffff; --btn-secondary: #ffffff; --empty-bg: #ffffff; --sticky-top: ${stickyTop}px; }
-        @media (prefers-color-scheme: dark) { :root { --bg-main-rgb: 18, 18, 18; --text-main: #e0e0e0; --text-sub: #a0a0a0; --card-bg: #1e1e1e; --border: #333333; --input-bg: #2c2c2c; --skeleton-bg: linear-gradient(110deg, #2c2c2c 8%, #3a3a3a 18%, #2c2c2c 33%); --modal-bg: #1e1e1e; --btn-secondary: #2c2c2c; --empty-bg: #1e1e1e; } }
-        body { font-family: 'Pretendard', sans-serif; background-color: rgb(var(--bg-main-rgb)); margin: 0; padding: 0; color: var(--text-main); overscroll-behavior-y: contain; transition: background-color 0.3s, color 0.3s; }
-        input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-        input[type="number"] { -moz-appearance: textfield; }
+        :root {
+          --bg-main-rgb: 247, 249, 250;
+          --text-main: #2c3e50;
+          --text-sub: #7f8c8d;
+          --card-bg: #ffffff;
+          --border: #e1e5e8;
+        }
+        body { font-family: 'Pretendard', sans-serif; background: #f8f9fa; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        .container { max-width: 500px; margin: 0 auto; padding: 20px 20px 100px; }
+        
+        .sticky-top-area { position: sticky; top: 0; z-index: 9999; background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); padding: 20px 20px 10px; margin: 0 -20px 15px; border-bottom: 1px solid #eee; }
+        .tabs { display: flex; gap: 8px; margin-bottom: 15px; }
+        .tab { flex: 1; padding: 12px; text-align: center; background: #fff; border-radius: 10px; cursor: pointer; font-weight: 800; font-size: 14px; color: #888; border: 1px solid #eee; }
+        .tab.active { background: #3498db; color: white; border-color: #3498db; }
+        
+        .menu-card { background: white; padding: 20px; border-radius: 18px; border: 1px solid #eee; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); transition: 0.2s; position: relative; cursor: pointer; }
+        .menu-card.highlight { border-color: #3498db; box-shadow: 0 0 15px rgba(52,152,219,0.3); transform: scale(1.02); }
+        .tag { background: #f1f3f5; padding: 4px 10px; border-radius: 6px; font-size: 11px; margin-right: 5px; font-weight: 800; color: #495057; }
+        
+        .reaction-group { display: flex; gap: 6px; }
+        .btn-pill { background: #f8f9fa; border: 1px solid #eee; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 5px; cursor: pointer; }
+        .btn-pill.liked { background: #e3f2fd; color: #228be6; border-color: #d0ebff; }
+        .btn-pill.disliked { background: #fff5f5; color: #fa5252; border-color: #ffc9c9; }
+        
+        .naver-map-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: #fff; border: 1px solid #eee; padding: 8px 14px; border-radius: 12px; text-decoration: none; color: #333; font-weight: 800; font-size: 13px; }
+        
+        .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #2c3e50; color: white; padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 14px; z-index: 100000; animation: slideDown 0.3s; box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
+        @keyframes slideDown { from { top: -50px; } to { top: 20px; } }
+        
+        .map-floating-toggle { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #2c3e50; color: white; border: none; padding: 14px 28px; border-radius: 30px; font-weight: 900; box-shadow: 0 8px 20px rgba(0,0,0,0.2); z-index: 9999; cursor: pointer; transition: 0.2s; }
+        
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 10000; }
+        .modal-content { background: white; padding: 25px; border-radius: 24px; width: 90%; max-width: 400px; max-height: 85vh; overflow-y: auto; }
+        
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-weight: 800; margin-bottom: 6px; font-size: 13px; }
+        .form-group input, .form-group select { width: 100%; padding: 12px; border: 1px solid #eee; border-radius: 10px; box-sizing: border-box; font-weight: 600; }
+        
+        .search-res { margin-top: 10px; border: 1px solid #eee; border-radius: 10px; overflow: hidden; }
+        .search-item { padding: 12px; border-bottom: 1px solid #eee; cursor: pointer; font-size: 13px; }
+        .search-item:last-child { border-bottom: none; }
+        .search-item:active { background: #f8f9fa; }
         
         .ptr-container { position: fixed; top: 0; left: 0; width: 100%; height: 60px; display: flex; justify-content: center; align-items: center; z-index: 9995; pointer-events: none; }
-        .ptr-icon { width: 30px; height: 30px; background: var(--card-bg); color: var(--text-main); border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; justify-content: center; align-items: center; font-size: 16px; transition: transform 0.3s; }
-        .ptr-icon.spinning { animation: spin 1s linear infinite; border: 3px solid var(--border); border-top: 3px solid #3498db; background: transparent; box-shadow: none; font-size: 0; }
-        .container { max-width: 500px; margin: 0 auto; padding: 0 20px 90px 20px; } 
-        
-        .sticky-top-area { position: sticky; top: 0; z-index: 9999; padding: 20px 20px 10px 20px; margin: 0 -20px; background: rgba(var(--bg-main-rgb), 0.90); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); box-shadow: 0 4px 20px rgba(0,0,0,0.05); transition: all 0.3s ease; }
-        .section-title { position: sticky; top: var(--sticky-top); z-index: 9998; font-size: 16px; color: var(--text-main); border-bottom: 2px solid #3498db; padding: 15px 20px 10px 20px; margin: 0 -20px 15px -20px; font-weight: 800; letter-spacing: -0.5px; background: rgba(var(--bg-main-rgb), 0.90); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
-        .filter-section { position: sticky; top: var(--sticky-top); z-index: 9998; padding: 10px 20px; margin: 0 -20px 15px -20px; display: flex; flex-direction: column; gap: 12px; background: rgba(var(--bg-main-rgb), 0.90); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        
-        .filter-section.hidden { transform: translateY(-150%); pointer-events: none; }
-        .pill-scroll-container { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
-        .pill-scroll-container::-webkit-scrollbar { display: none; }
-        .pill-btn { flex-shrink: 0; padding: 8px 16px; border-radius: 30px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-sub); font-weight: 700; font-size: 14px; white-space: nowrap; cursor: pointer; transition: 0.2s; }
-        .pill-btn.active { background: #3498db; color: white; border-color: #3498db; }
-        .btn { background-color: #3498db; color: white; border: none; padding: 14px 20px; font-size: 16px; border-radius: 10px; cursor: pointer; width: 100%; font-weight: 800; transition: 0.2s; box-shadow: 0 4px 6px rgba(52,152,219,0.2); }
-        .btn:active { transform: scale(0.96); } .btn:disabled { background-color: #bdc3c7; cursor: not-allowed; box-shadow: none; }
-        .btn-secondary { background-color: var(--border); color: var(--text-main); margin-top: 10px; box-shadow: none; }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .header h2 { margin: 0; font-size: 20px; font-weight: 900; letter-spacing: -0.5px; color: var(--text-main); }
-        .header-loader { border: 3px solid var(--border); border-top: 3px solid #3498db; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; margin-left: 10px;}
-        #user-info { font-size: 13px; font-weight: 800; background: #3498db20; color: #3498db; padding: 6px 12px; border-radius: 20px; margin-right: 5px; }
-        .logout-btn { background: var(--card-bg); border: 1px solid var(--border); color: var(--text-sub); padding: 5px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; font-weight: 800; transition: 0.2s; }
-        .logout-btn:active { transform: scale(0.95); }
-        .tabs { display: flex; gap: 10px; margin-bottom: 5px; }
-        .tab { flex: 1; text-align: center; padding: 14px; background: var(--card-bg); border-radius: 12px; cursor: pointer; font-weight: 800; font-size: 14px; border: 1px solid var(--border); transition: 0.2s; color: var(--text-sub); }
-        .tab.active { background: #3498db; color: white; border-color: #3498db; box-shadow: 0 4px 10px rgba(52,152,219,0.3); transform: translateY(-2px); }
-        .search-input, .category-select { width: 100%; padding: 14px; border-radius: 12px; border: 1px solid var(--border); box-sizing: border-box; font-size: 14px; font-weight: 600; background: var(--input-bg); color: var(--text-main); outline: none; transition: 0.3s; }
-        .search-input:focus, .category-select:focus { border-color: #3498db; box-shadow: 0 0 0 3px rgba(52,152,219,0.1); }
-        
-        .menu-card { background: var(--card-bg); padding: 20px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.04); margin-bottom: 18px; border: 1px solid var(--border); position: relative; transition: all 0.3s ease; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-        .menu-card.highlight { border-color: #3498db; box-shadow: 0 0 15px rgba(52,152,219,0.4); transform: scale(1.02); }
-        .menu-card:active { transform: scale(0.98); opacity: 0.9; }
-        
-        .card-top-actions { position: absolute; top: 18px; right: 18px; display: flex; gap: 6px; z-index: 5; }
-        .menu-card h3 { margin: 0 0 6px 0; font-size: 20px; color: var(--text-main); padding-right: 90px; word-break: keep-all; font-weight: 900; letter-spacing: -0.5px; }
-        .tag-container { margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 5px; padding-right: 90px; position: relative; z-index: 1; }
-        .tag { display: inline-flex; align-items: center; background: var(--border); color: var(--text-main); padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; white-space: nowrap; opacity: 0.8;}
-        .btn-mini { background: rgb(var(--bg-main-rgb)); border: 1px solid var(--border); padding: 5px 8px; border-radius: 6px; font-size: 11px; font-weight: 800; cursor: pointer; color: var(--text-sub); transition: 0.2s; }
-        .btn-mini:active { transform: scale(0.9); }
-        .btn-mini.danger { color: #e74c3c; }
-        .tag-date { background: #f08c0020; color: #f08c00; border: 1px solid #f08c0040;}
-        .tag-status { background: #3498db20; color: #3498db; border: 1px solid #3498db40; } 
-        .tag-deleted { background: #e74c3c20; color: #e74c3c; width: 100%; text-align: center; margin-bottom: 12px; font-size: 13px; padding: 8px; border-radius: 8px; font-weight: 800; box-sizing: border-box; }
-        .menu-details { font-size: 14px; color: var(--text-sub); line-height: 1.6; font-weight: 600; margin-bottom: 15px; }
-        
-        /* ✨ 슬림해진 좋아요/싫어요 알약 디자인 */
-        .reaction-group { display: flex; gap: 8px; }
-        .like-btn, .dislike-btn { background: #f8f9fa; color: #495057; border: 1px solid #e9ecef; padding: 6px 14px; border-radius: 20px; cursor: pointer; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; font-size: 14px; transition: 0.2s; }
-        .like-btn.liked { background: #e3f2fd; color: #228be6; border-color: #d0ebff; animation: heartPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); } 
-        .dislike-btn.liked { background: #ffe3e3; color: #fa5252; border-color: #ffc9c9; animation: heartPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        .like-btn:disabled, .dislike-btn:disabled { opacity: 0.6; cursor: wait; }
-        @keyframes heartPop { 0% { transform: scale(0.9); } 50% { transform: scale(1.15); } 100% { transform: scale(1); } }
-        
-        .btn-outline { width: 100%; background: var(--card-bg); padding: 12px; font-size: 14px; font-weight: 800; border-radius: 10px; cursor: pointer; border: 1px solid #3498db; color: #3498db; margin-top: 15px; transition: 0.2s; }
-        .btn-outline:active { background: #3498db20; transform: scale(0.98); }
-        .fab-container { position: fixed; bottom: 25px; right: 25px; display: flex; flex-direction: column; gap: 12px; z-index: 9999; align-items: flex-end; }
-        .fab { background: linear-gradient(135deg, #3498db, #2ecc71); color: white; width: 56px; height: 56px; border-radius: 50%; font-size: 28px; border: none; box-shadow: 0 6px 20px rgba(46, 204, 113, 0.4); display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        .fab:active { transform: scale(0.85); }
-        .fab-secondary { background: var(--btn-secondary); color: var(--text-main); font-size: 26px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 10000; backdrop-filter: blur(3px); animation: fadeIn 0.2s ease-out; }
-        .modal-content { background: var(--modal-bg); padding: 25px; border-radius: 24px; width: 90%; max-width: 400px; max-height: 85vh; overflow-y: auto; text-align: left; box-shadow: 0 20px 40px rgba(0,0,0,0.4); animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; }
-        .modal-title-sticky { position: sticky; top: -25px; background: var(--modal-bg); z-index: 10; margin: -25px -25px 20px -25px; padding: 25px 25px 12px 25px; border-bottom: 3px solid #3498db; font-size: 22px; font-weight: 900; color: var(--text-main); }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes popIn { 0% { transform: scale(0.9) translateY(20px); opacity: 0; } 100% { transform: scale(1) translateY(0); opacity: 1; } }
-        .form-group { margin-bottom: 18px; } 
-        .form-group label { display: block; margin-bottom: 8px; font-weight: 800; font-size: 13px; color: var(--text-main); }
-        .form-group input, .form-group select { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 10px; box-sizing: border-box; font-size: 14px; font-weight: 500; outline: none; transition: 0.2s; background: var(--input-bg); color: var(--text-main); }
-        .form-group input:focus, .form-group select:focus { border-color: #3498db; box-shadow: 0 0 0 3px rgba(52,152,219,0.1); }
-        .spinner { border: 4px solid var(--border); border-top: 4px solid #3498db; border-radius: 50%; width: 45px; height: 45px; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .skeleton { background: var(--border); background: var(--skeleton-bg); border-radius: 5px; background-size: 200% 100%; animation: 1.5s shine linear infinite; }
-        .skeleton-card { background: var(--card-bg); padding: 20px; border-radius: 16px; border: 1px solid var(--border); margin-bottom: 18px; }
-        .toast { position: fixed; top: 40px; left: 50%; transform: translateX(-50%); background: #2c3e50; color: white; padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 10000; animation: slideDown 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); white-space: nowrap; }
-        .empty-state { text-align: center; padding: 50px 20px; background: var(--empty-bg); border-radius: 20px; border: 2px dashed var(--border); margin: 20px 0; animation: fadeIn 0.5s ease-out; }
-        .empty-icon { font-size: 60px; margin-bottom: 15px; animation: float 3s ease-in-out infinite; }
-        .empty-title { font-size: 18px; font-weight: 900; color: var(--text-main); margin-bottom: 8px; }
-        .empty-desc { font-size: 14px; color: var(--text-sub); font-weight: 500; line-height: 1.5; }
-        @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0px); } }
-        
-        .map-floating-toggle { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #2c3e50; color: white; border: none; padding: 14px 28px; border-radius: 30px; font-weight: 800; font-size: 15px; box-shadow: 0 6px 20px rgba(0,0,0,0.25); z-index: 9999; cursor: pointer; transition: 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; align-items: center; gap: 8px; white-space: nowrap; }
-        .map-floating-toggle:active { transform: translateX(-50%) scale(0.95); }
-        .map-floating-toggle.open { background: white; color: #2c3e50; border: 2px solid #2c3e50; }
+        .ptr-icon { width: 30px; height: 30px; background: white; border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; justify-content: center; align-items: center; font-size: 16px; transition: transform 0.3s; }
       `}</style>
 
       {toastMessage && <div className="toast">{toastMessage}</div>}
-      
-      {session && (
-        <button 
-          className={`map-floating-toggle ${isMapOpen ? 'open' : ''}`}
-          onClick={() => {
-            setIsMapOpen(!isMapOpen);
-            if (!isMapOpen) {
-              setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 100);
-            }
-          }}
-        >
-          {isMapOpen ? '📄 목록 보기' : '🗺️ 지도 보기'}
-        </button>
-      )}
+
+      <button 
+        className={`map-floating-toggle ${isMapOpen ? 'open' : ''}`}
+        style={isMapOpen ? { background: 'white', color: '#2c3e50', border: '2px solid #2c3e50' } : {}}
+        onClick={() => {
+          setIsMapOpen(!isMapOpen);
+          if (!isMapOpen) {
+            setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 100);
+          }
+        }}
+      >
+        {isMapOpen ? '📄 목록 보기' : '🗺️ 지도 보기'}
+      </button>
 
       <div className="ptr-container" style={{ transform: `translateY(${pullDistance > 0 ? pullDistance - 60 : -60}px)` }}>
-        <div className={`ptr-icon ${isRefreshing ? 'spinning' : ''}`} style={{ transform: `rotate(${pullDistance * 2}deg)` }}>{!isRefreshing && '⬇️'}</div>
-      </div>
-      <div className="container-wrapper" style={pullDistance > 0 ? { transform: `translateY(${pullDistance * 0.5}px)` } : undefined} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
-        <div className="container">
-          <div ref={headerRef} className={`sticky-top-area ${isScrolled ? 'scrolled' : ''}`}>
-            <div className="header">
-              <div style={{display:'flex', alignItems:'center'}}><h2>KIPFA 점심 추천</h2>{isLoading && !isInitialLoading && !isRefreshing && <div className="header-loader"></div>}</div>
-              <div><span id="user-info">👋 {session.name}님</span><button className="logout-btn" onClick={handleLogout}>로그아웃</button></div>
-            </div>
-            <div className="tabs"><div className={`tab ${activeTab === 'pick' ? 'active' : ''}`} onClick={() => setActiveTab('pick')}>📅 이번주/다음주 Pick</div><div className={`tab ${activeTab === 'all' ? 'active' : ''}`} onClick={() => setActiveTab('all')}>📂 전체 맛집 보기</div></div>
-          </div>
-          
-          {isInitialLoading ? (
-            <div style={{marginTop: '20px'}}><h3 className="section-title">데이터 로딩 중...</h3>{[1, 2, 3].map(i => (<div key={i} className="skeleton-card"><div className="skeleton" style={{width:'60px', height:'24px', marginBottom:'12px'}}></div><div className="skeleton" style={{width:'40%', height:'16px', marginBottom:'10px'}}></div><div className="skeleton" style={{width:'70%', height:'28px', marginBottom:'15px'}}></div><div className="skeleton" style={{width:'100%', height:'40px', borderRadius:'10px'}}></div></div>))}</div>
-          ) : (
-            <div style={{marginTop: '10px'}}>
-              {isMapOpen && (
-                <div id="map-area" style={{ marginBottom: '20px' }}>
-                  <NaverMap 
-                    menus={activeTab === 'pick' ? [...filteredData.tw, ...filteredData.nw] : filteredData.allF} 
-                    targetShop={mapTargetShop}
-                    onMarkerClick={handleMapMarkerClick}
-                  />
-                </div>
-              )}
-
-              {activeTab === 'pick' && (
-                <div><h3 className="section-title">🎯 이번주 수/금 회식 후보</h3>{filteredData.tw.length === 0 ? <div className="empty-state"><div className="empty-icon">🍳</div><div className="empty-title">후보가 없습니다.</div><div className="empty-desc">새로운 맛집을 공유해 주세요.</div></div> : filteredData.tw.map(m => <Card key={m.id} menu={m} type="pick" />)}<h3 className="section-title">🗓️ 다음주 수/금 회식 후보</h3>{filteredData.nw.length === 0 ? <div className="empty-state"><div className="empty-icon">🗓️</div><div className="empty-title">후보가 없습니다.</div><div className="empty-desc">새로운 맛집을 공유해 주세요.</div></div> : filteredData.nw.map(m => <Card key={m.id} menu={m} type="pick" />)}</div>
-              )}
-              {activeTab === 'all' && (
-                <div>
-                  <div className={`filter-section ${isScrollDown ? 'hidden' : ''}`}><div style={{ display: 'flex', gap: '10px' }}><input type="text" className="search-input" placeholder="🔍 맛집 검색..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{flex: 1}} /><select className="category-select" style={{width: '120px'}} value={sortOption} onChange={e => setSortOption(e.target.value as any)}><option value="latest">⏱️ 최신순</option><option value="likes">❤️ 인기순</option></select></div>
-                  <div className="pill-scroll-container" onTouchStart={e => e.stopPropagation()} onTouchMove={e => e.stopPropagation()}>
-                    <button className={`pill-btn ${categoryFilter === 'all' ? 'active' : ''}`} onClick={() => setCategoryFilter('all')}>🏷️ 전체</button>
-                    {Object.keys(CATEGORY_EMOJI).map(c => <button key={c} className={`pill-btn ${categoryFilter === c ? 'active' : ''}`} onClick={() => setCategoryFilter(c)}>{CATEGORY_EMOJI[c]}</button>)}
-                  </div>
-                  </div>
-                  
-                  {filteredData.allF.length === 0 ? <div className="empty-state" style={{marginTop: '40px'}}><div className="empty-icon">🔍</div><div className="empty-title">결과가 없습니다.</div></div> : filteredData.allF.map(m => <Card key={m.id} menu={m} type="all" />)}
-                </div>
-              )}
-            </div>
-          )}
+        <div className="ptr-icon" style={{ transform: `rotate(${pullDistance * 2}deg)` }}>
+          {isRefreshing ? '⏳' : '⬇️'}
         </div>
       </div>
-      <div className="fab-container">{activeTab === 'pick' && <button className="fab fab-secondary" onClick={spinRoulette}>🎲</button>}<button className="fab" onClick={openAddModal}>＋</button></div>
-      
-      {isRouletteOpen && (
-        <div className="modal" onClick={() => !isSpinning && setIsRouletteOpen(false)}><div className="modal-content" style={{textAlign: 'center', padding: '40px 20px'}} onClick={e => e.stopPropagation()}><div className="modal-title-sticky" style={{textAlign: 'left', marginBottom: '20px'}}>🎲 오늘의 회식 Pick은?</div>{rouletteResult && (<div style={{background: 'rgb(var(--bg-main-rgb))', padding: '30px 20px', borderRadius: '20px', border: '2px solid var(--border)', marginBottom: '20px'}}><div style={{fontSize: '32px', marginBottom: '10px'}}>{CATEGORY_EMOJI[rouletteResult.category]?.split(' ')[0] || '🍽️'}</div><div style={{fontSize: '14px', color: 'var(--text-sub)', fontWeight: '800', marginBottom: '5px'}}>{rouletteResult.category}</div><div style={{fontSize: '24px', fontWeight: '900', color: '#3498db', wordBreak: 'keep-all'}}>{rouletteResult.shop_name}</div></div>)}<button className="btn" onClick={spinRoulette} disabled={isSpinning}>{isSpinning ? '고르는 중...' : '다시 돌리기 🔄'}</button>{!isSpinning && rouletteResult && (<button className="btn-outline" onClick={() => copyToClipboard(`[오늘의 점심 룰렛 결과!]\n🏠 ${rouletteResult.shop_name}\n📍 ${rouletteResult.shop_url}`)}>📤 결과 공유하기</button>)}</div></div>
+
+      <div 
+        className="container-wrapper" 
+        style={pullDistance > 0 ? { transform: `translateY(${pullDistance * 0.5}px)` } : undefined} 
+        onTouchStart={handleTouchStart} 
+        onTouchMove={handleTouchMove} 
+        onTouchEnd={handleTouchEnd}
+      >
+        <div className="container">
+          <div ref={headerRef} className="sticky-top-area">
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', alignItems: 'center' }}>
+              <h2 style={{ margin: 0, fontWeight: 900, fontSize: '20px' }}>🏢 KIPFA 점심 추천</h2>
+              <div style={{ fontSize: '12px', fontWeight: 800, color: '#888' }}>
+                {session.name}님 👋 
+                <button onClick={handleLogout} style={{ border: 'none', background: '#eee', padding: '4px 8px', borderRadius: '10px', marginLeft: '5px', fontWeight: 800 }}>로그아웃</button>
+              </div>
+            </div>
+            <div className="tabs">
+              <div className={`tab ${activeTab === 'pick' ? 'active' : ''}`} onClick={() => setActiveTab('pick')}>📅 이번/다음주 Pick</div>
+              <div className={`tab ${activeTab === 'all' ? 'active' : ''}`} onClick={() => setActiveTab('all')}>📂 전체 맛집</div>
+            </div>
+          </div>
+
+          {isMapOpen && (
+            <div style={{ marginBottom: '20px' }}>
+              <NaverMap 
+                menus={activeTab === 'pick' ? [...filteredData.tw, ...filteredData.nw] : filteredData.allF} 
+                targetShop={mapTargetShop}
+                onMarkerClick={handleMapMarkerClick}
+              />
+            </div>
+          )}
+
+          <div>
+            {activeTab === 'pick' && (
+              <>
+                <h4 style={{ margin: '10px 0', color: '#3498db' }}>🎯 이번주 회식 후보</h4>
+                {filteredData.tw.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px 20px', background: 'white', borderRadius: '20px' }}>후보가 없습니다.</div>
+                ) : (
+                  filteredData.tw.map(m => <Card key={m.id} menu={m} type="pick" />)
+                )}
+
+                <h4 style={{ margin: '20px 0 10px', color: '#888' }}>🗓️ 다음주 회식 후보</h4>
+                {filteredData.nw.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px 20px', background: 'white', borderRadius: '20px' }}>후보가 없습니다.</div>
+                ) : (
+                  filteredData.nw.map(m => <Card key={m.id} menu={m} type="pick" />)
+                )}
+              </>
+            )}
+            
+            {activeTab === 'all' && (
+              <>
+                <input 
+                  type="text" 
+                  placeholder="🔍 가게명 검색..." 
+                  value={searchQuery} 
+                  onChange={e => setSearchQuery(e.target.value)} 
+                  style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #eee', marginBottom: '15px', boxSizing: 'border-box' }} 
+                />
+                <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '10px', marginBottom: '10px' }}>
+                  <button onClick={() => setCategoryFilter('all')} style={{ padding: '6px 12px', borderRadius: '20px', border: '1px solid #ddd', background: categoryFilter === 'all' ? '#3498db' : 'white', color: categoryFilter === 'all' ? 'white' : '#555', whiteSpace: 'nowrap' }}>전체</button>
+                  {Object.keys(CATEGORY_EMOJI).map(c => (
+                    <button key={c} onClick={() => setCategoryFilter(c)} style={{ padding: '6px 12px', borderRadius: '20px', border: '1px solid #ddd', background: categoryFilter === c ? '#3498db' : 'white', color: categoryFilter === c ? 'white' : '#555', whiteSpace: 'nowrap' }}>{CATEGORY_EMOJI[c]}</button>
+                  ))}
+                </div>
+                {filteredData.allF.map(m => <Card key={m.id} menu={m} type="all" />)}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {activeTab === 'pick' && (
+        <button onClick={spinRoulette} style={{ position: 'fixed', bottom: '100px', right: '20px', width: '56px', height: '56px', borderRadius: '50%', background: '#fff', color: '#333', border: '1px solid #ddd', fontSize: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 9998 }}>🎲</button>
       )}
-      
+      <button onClick={openAddModal} style={{ position: 'fixed', bottom: '30px', right: '20px', width: '56px', height: '56px', borderRadius: '50%', background: '#3498db', color: 'white', border: 'none', fontSize: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', zIndex: 9998 }}>＋</button>
+
+      {/* 모달 창들 */}
+      {isRouletteOpen && (
+        <div className="modal" onClick={() => !isSpinning && setIsRouletteOpen(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ textAlign: 'center' }}>
+            <h3 style={{ marginTop: 0, fontWeight: 900 }}>🎲 오늘의 회식 Pick은?</h3>
+            {rouletteResult && (
+              <div style={{ background: '#f8f9fa', padding: '30px 20px', borderRadius: '20px', marginBottom: '20px' }}>
+                <div style={{ fontSize: '32px', marginBottom: '10px' }}>{CATEGORY_EMOJI[rouletteResult.category]?.split(' ')[0] || '🍽️'}</div>
+                <div style={{ fontSize: '14px', color: '#888', fontWeight: 800, marginBottom: '5px' }}>{rouletteResult.category}</div>
+                <div style={{ fontSize: '24px', fontWeight: 900, color: '#3498db', wordBreak: 'keep-all' }}>{rouletteResult.shop_name}</div>
+              </div>
+            )}
+            <button onClick={spinRoulette} disabled={isSpinning} style={{ width: '100%', background: '#3498db', color: 'white', padding: '15px', borderRadius: '12px', border: 'none', fontWeight: 900 }}>
+              {isSpinning ? '고르는 중...' : '다시 돌리기 🔄'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {isModalOpen && (
         <div className="modal" onClick={() => setIsModalOpen(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <div className="modal-title-sticky">{modalMode === 'add' ? '✨ 새로운 맛집 추천' : modalMode === 'edit' ? '✏️ 추천 정보 수정' : '🔄 다시 Pick 하기'}</div>
+            <h3 style={{ marginTop: 0, fontWeight: 900 }}>{modalMode === 'edit' ? '✏️ 맛집 수정' : '✨ 새로운 맛집 추천'}</h3>
             
-            <div className="form-group" style={{background: 'var(--bg-main-rgb)', padding: '15px', borderRadius: '12px', border: '1px solid var(--border)', marginBottom: '18px'}}>
-              <label>🔍 네이버 맛집 검색 (결과 클릭시 자동입력)</label>
-              <div style={{display: 'flex', gap: '8px'}}>
-                <input type="text" placeholder="예: 돈까스 (송파구 자동 포함)" value={keyword} onChange={e => setKeyword(e.target.value)} onKeyDown={e => e.key === 'Enter' && searchShop()} style={{flex: 1}}/>
-                <button className="btn" style={{width: '80px', padding: '0'}} onClick={searchShop} disabled={isSearching}>{isSearching ? '...' : '검색'}</button>
+            <div className="form-group" style={{ background: '#f8f9fa', padding: '15px', borderRadius: '12px' }}>
+              <label>🔍 네이버에서 찾기</label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input type="text" placeholder="예: 돈까스" value={keyword} onChange={e => setKeyword(e.target.value)} onKeyDown={e => e.key === 'Enter' && searchShop()} />
+                <button onClick={searchShop} style={{ background: '#3498db', color: 'white', border: 'none', padding: '0 15px', borderRadius: '8px', fontWeight: 800 }}>검색</button>
               </div>
               {searchResults.length > 0 && (
-                <div style={{marginTop: '10px', background: 'var(--input-bg)', borderRadius: '8px', border: '1px solid var(--border)', overflow: 'hidden'}}>
+                <div className="search-res">
                   {searchResults.map((item, idx) => (
-                    <div key={idx} onClick={() => selectShop(item)} style={{padding: '12px', borderBottom: '1px solid var(--border)', cursor: 'pointer', transition: '0.2s'}} onMouseOver={e => (e.currentTarget.style.background = '#f1f3f5')} onMouseOut={e => (e.currentTarget.style.background = 'transparent')}>
-                      <div style={{fontWeight: '800', fontSize: '14px', marginBottom: '4px'}} dangerouslySetInnerHTML={{__html: item.title}}></div>
-                      <div style={{fontSize: '11px', color: 'var(--text-sub)', fontWeight: '600'}}>{item.category} | {item.address}</div>
+                    <div key={idx} className="search-item" onClick={() => selectShop(item)}>
+                      <b dangerouslySetInnerHTML={{ __html: item.title }}></b><br />
+                      <small style={{ color: '#888' }}>{item.category} | {item.address}</small>
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            <div className="form-group" style={modalMode === 'repick' ? { background: '#3498db10', padding: '15px', borderRadius: '12px', border: '1px solid #3498db30' } : {}}>
-              <label style={modalMode === 'repick' ? { color: '#3498db', display: 'flex', alignItems: 'center', justifyContent: 'space-between' } : {}}>추천 방문일 (수/금){modalMode === 'repick' && <span style={{ fontSize: '11px', backgroundColor: '#3498db20', color: '#3498db', padding: '3px 8px', borderRadius: '10px' }}>날짜 변경 필수!</span>}</label>
-              <select value={formData.visitDate} onChange={e => setFormData({...formData, visitDate: e.target.value})} style={modalMode === 'repick' ? { border: '2px solid #3498db' } : {}}>{dateOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select>
+            <div className="form-group">
+              <label>📅 방문 예정일</label>
+              <select value={formData.visitDate} onChange={e => setFormData({ ...formData, visitDate: e.target.value })}>
+                {dateOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
             </div>
             
-            <div className="form-group"><label>가게명</label><input type="text" placeholder="링크를 붙여넣으면 자동 입력됩니다" value={formData.shopName} onChange={e => setFormData({...formData, shopName: e.target.value})} onBlur={e => checkDuplicate('name', e.target.value)} /></div>
-            <div className="form-group"><label>카테고리</label><select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>{Object.keys(CATEGORY_EMOJI).map(c => <option key={c} value={c}>{CATEGORY_EMOJI[c]}</option>)}</select></div>
-            
-            <div className="form-group"><label>대표 메뉴</label>
-              <input type="text" placeholder="메뉴 1 (필수)" style={{marginBottom:'8px'}} value={formData.menu1} onChange={e => setFormData({...formData, menu1: e.target.value})} />
-              <input type="text" placeholder="메뉴 2 (선택)" style={{marginBottom:'8px'}} value={formData.menu2} onChange={e => setFormData({...formData, menu2: e.target.value})} />
-              <input type="text" placeholder="메뉴 3 (선택)" value={formData.menu3} onChange={e => setFormData({...formData, menu3: e.target.value})} />
+            <div className="form-group">
+              <label>🏠 가게명</label>
+              <input type="text" value={formData.shopName} disabled style={{ background: '#f1f3f5' }} />
             </div>
             
-            <button className="btn" onClick={handleModalSubmit} style={{marginTop:'20px'}}>{modalMode === 'edit' ? '수정 완료' : '추천 완료'}</button>
-            <button className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>닫기</button>
+            <div className="form-group">
+              <label>🍽️ 대표 메뉴 (필수 1개)</label>
+              <input type="text" placeholder="메뉴 1" style={{ marginBottom: '5px' }} value={formData.menu1} onChange={e => setFormData({ ...formData, menu1: e.target.value })} />
+              <input type="text" placeholder="메뉴 2 (선택)" style={{ marginBottom: '5px' }} value={formData.menu2} onChange={e => setFormData({ ...formData, menu2: e.target.value })} />
+              <input type="text" placeholder="메뉴 3 (선택)" value={formData.menu3} onChange={e => setFormData({ ...formData, menu3: e.target.value })} />
+            </div>
+
+            <button onClick={handleModalSubmit} style={{ width: '100%', background: '#3498db', color: 'white', padding: '15px', borderRadius: '12px', border: 'none', fontWeight: 900, marginTop: '10px' }}>
+              완료!
+            </button>
           </div>
         </div>
       )}
+
       {isDeleteModalOpen && (
-        <div className="modal" onClick={() => setIsDeleteModalOpen(false)}><div className="modal-content" onClick={e => e.stopPropagation()}><div className="modal-title-sticky" style={{color: '#e74c3c', borderColor: '#e74c3c'}}>🚨 맛집 삭제 요청</div><p style={{fontSize:'13px', color:'var(--text-sub)', marginBottom:'20px', fontWeight:'600'}}>삭제 사유를 선택해 주세요.</p><div className="form-group"><label>삭제 사유</label><select value={deleteReason} onChange={e => setDeleteReason(e.target.value)}><option value="폐업/이전">폐업/이전</option><option value="가격상승">가격상승</option><option value="재방문의사없음">재방문의사없음</option></select></div><button className="btn" style={{background:'#e74c3c', color:'white'}} onClick={submitDeleteRequest}>요청하기</button><button className="btn btn-secondary" onClick={() => setIsDeleteModalOpen(false)}>취소</button></div></div>
+        <div className="modal" onClick={() => setIsDeleteModalOpen(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <h3 style={{ color: '#e74c3c', marginTop: 0, fontWeight: 900 }}>🚨 맛집 삭제 요청</h3>
+            <div className="form-group">
+              <label>삭제 사유</label>
+              <select value={deleteReason} onChange={e => setDeleteReason(e.target.value)}>
+                <option value="폐업/이전">폐업/이전</option>
+                <option value="가격상승">가격상승</option>
+                <option value="재방문의사없음">재방문의사없음</option>
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={submitDeleteRequest} style={{ flex: 1, background: '#e74c3c', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: 800 }}>요청하기</button>
+              <button onClick={() => setIsDeleteModalOpen(false)} style={{ flex: 1, background: '#eee', color: '#333', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: 800 }}>취소</button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
 
   function Card({ menu: m, type }: { menu: any, type: string }) {
-    const likes = String(m.likes || '').split(',').filter((x: string) => x.trim() !== '');
-    const dislikes = String(m.dislikes || '').split(',').filter((x: string) => x.trim() !== '');
-    const isDeleteRequested = m.delete_requested === 'Y';
-    const dateStr = m.visit_date || '미정';
-    const cleanName = (m.shop_name || '').replace(/\s/g, '');
-    const isPicked = filteredData.pickNames.includes(cleanName);
-    const isLiking = reactionLoading?.id === m.id && reactionLoading?.type === 'toggle_like';
-    const isDisliking = reactionLoading?.id === m.id && reactionLoading?.type === 'toggle_dislike';
-    
-    const cardClass = `menu-card ${highlightedCardId === m.id ? 'highlight' : ''}`;
+    const likes = String(m.likes || '').split(',').filter(Boolean);
+    const dislikes = String(m.dislikes || '').split(',').filter(Boolean);
+    const isLiked = likes.includes(session?.pin);
+    const isDisliked = dislikes.includes(session?.pin);
 
     return (
       <div 
         id={`shop-card-${m.id}`} 
-        className={cardClass} 
+        className={`menu-card ${highlightedCardId === m.id ? 'highlight' : ''}`} 
         onClick={() => handleShowLocationOnMap(m.shop_name)}
       >
-        {type === 'all' && (<div className="card-top-actions"><button className="btn-mini" onClick={(e) => { e.stopPropagation(); openEditModal(m, false); }}>✏️ 수정</button><button className="btn-mini danger" onClick={(e) => { e.stopPropagation(); setDeleteTargetId(m.id); setIsDeleteModalOpen(true); }} disabled={isDeleteRequested}>{isDeleteRequested ? '요청중' : '🗑️ 삭제'}</button></div>)}{isDeleteRequested && <div className="tag-deleted">🚨 삭제 요청 검토 중: {m.delete_reason || '사유 미상'}</div>}<div className="tag-container"><span className="tag">{CATEGORY_EMOJI[m.category] || m.category}</span><span className="tag tag-date">📅 {dateStr}</span>{type === 'all' && isPicked && <span className="tag tag-status">🎯 Pick 완료</span>}</div>
+        {type === 'all' && (
+          <div style={{ position: 'absolute', top: '15px', right: '15px', display: 'flex', gap: '5px' }}>
+            <button onClick={(e) => { e.stopPropagation(); openEditModal(m, false); }} style={{ background: '#f8f9fa', border: '1px solid #ddd', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>수정</button>
+            <button onClick={(e) => { e.stopPropagation(); setDeleteTargetId(m.id); setIsDeleteModalOpen(true); }} style={{ background: '#fff5f5', color: '#e74c3c', border: '1px solid #ffc9c9', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>삭제</button>
+          </div>
+        )}
+
+        <div style={{ marginBottom: '10px' }}>
+          <span className="tag">{CATEGORY_EMOJI[m.category] || m.category}</span>
+          <span className="tag" style={{ background: '#fff9db', color: '#f08c00' }}>📅 {m.visit_date}</span>
+        </div>
         
-        <h3 style={{marginTop: '8px'}}>{m.shop_name}</h3>
+        <h3 style={{ margin: '0 0 5px 0', fontSize: '18px', fontWeight: 900 }}>{m.shop_name}</h3>
+        <p style={{ margin: 0, color: '#555', fontSize: '14px', fontWeight: 600 }}>{m.menu_details}</p>
         
-        {m.menu_details && <div className="menu-details">{m.menu_details}</div>}
-        
-        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-          <a href={`https://map.naver.com/p/search/${encodeURIComponent(m.shop_name)}`} target="_blank" onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'var(--bg-main-rgb)', color: 'var(--text-main)', border: '1px solid var(--border)', padding: '8px 12px', borderRadius: '10px', fontWeight: '800', fontSize: '13px', textDecoration: 'none' }}>
-            <img src="https://map.naver.com/v5/favicon.ico" width="14" height="14" alt="naver" /> 네이버 지도
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '15px' }}>
+          {/* ✨ 절대 깨지지 않는 SVG 기반 공식 네이버 지도 아이콘 */}
+          <a href={`https://map.naver.com/p/search/${encodeURIComponent(m.shop_name)}`} target="_blank" onClick={e => e.stopPropagation()} className="naver-map-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M16.0718 0H7.92817C3.54921 0 0 3.54921 0 7.92817V16.0718C0 20.4508 3.54921 24 7.92817 24H16.0718C20.4508 24 24 20.4508 24 16.0718V7.92817C24 3.54921 20.4508 0 16.0718 0Z" fill="#03C75A"/>
+              <path d="M16.9242 17.5255H13.6702L9.42152 11.2335V17.5255H6.38818V6.47449H9.64219L13.8909 12.7665V6.47449H16.9242V17.5255Z" fill="white"/>
+            </svg>
+            네이버 지도
           </a>
-          
+
           <div className="reaction-group">
-            <button className={`like-btn ${likes.includes(session?.pin as string) ? 'liked' : ''}`} onClick={(e) => { e.stopPropagation(); toggleReaction(m.id, 'toggle_like'); }} disabled={isLiking || isDisliking}>
+            <button className={`btn-pill ${isLiked ? 'liked' : ''}`} onClick={e => { e.stopPropagation(); toggleReaction(m.id, 'toggle_like'); }}>
               👍 {likes.length}
             </button>
-            <button className={`dislike-btn ${dislikes.includes(session?.pin as string) ? 'liked' : ''}`} onClick={(e) => { e.stopPropagation(); toggleReaction(m.id, 'toggle_dislike'); }} disabled={isLiking || isDisliking}>
+            <button className={`btn-pill ${isDisliked ? 'disliked' : ''}`} onClick={e => { e.stopPropagation(); toggleReaction(m.id, 'toggle_dislike'); }}>
               👎 {dislikes.length}
             </button>
           </div>
         </div>
-        
-        {type === 'all' && (<div style={{display: 'flex', gap: '10px', marginTop: '15px'}}><button className="btn-outline" style={{flex: 2}} onClick={(e) => { e.stopPropagation(); openEditModal(m, true); }}>🔄 다시 Pick 하기</button><button className="btn-outline" style={{flex: 1, borderColor: 'var(--border)', color: 'var(--text-sub)'}} onClick={(e) => { e.stopPropagation(); copyToClipboard(`[맛집 추천] ${m.shop_name}\n📍 ${m.shop_url}`); }}>📤 공유</button></div>)}
       </div>
     );
   }
