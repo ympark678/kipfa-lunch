@@ -3,6 +3,13 @@
 import Script from "next/script";
 import { useEffect, useRef } from "react";
 
+// ✨ TypeScript의 불만을 잠재우는 허가증! (window 안에 naver가 있다고 미리 알려줌)
+declare global {
+  interface Window {
+    naver: any;
+  }
+}
+
 export default function NaverMap() {
   const mapElement = useRef<HTMLDivElement | null>(null);
 
