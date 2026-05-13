@@ -11,38 +11,40 @@ declare global {
 
 export default function NaverMap({ 
   menus = [], 
-  targetShopName, 
+  targetShop, 
   onMarkerClick 
 }: { 
   menus?: any[], 
-  targetShopName?: string | null,
+  targetShop?: { name: string, t: number } | null, // ✨ 시간값(t)이 포함된 객체로 변경!
   onMarkerClick?: (id: string) => void 
 }) {
   const mapElement = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<{ [key: string]: any }>({});
   const infoWindowsRef = useRef<{ [key: string]: any }>({});
-  const targetShopRef = useRef(targetShopName);
+  const targetShopRef = useRef(targetShop?.name);
   
   const geocodeCache = useRef<{ [key: string]: any }>({});
 
+  // ✨ 시간(t)이 바뀔 때마다 무조건 실행되므로, 같은 가게를 여러 번 눌러도 100% 작동합니다!
   useEffect(() => {
-    targetShopRef.current = targetShopName;
-    if (targetShopName && mapRef.current && markersRef.current[targetShopName]) {
-      const targetMarker = markersRef.current[targetShopName];
-      mapRef.current.panTo(targetMarker.getPosition());
-      
-      Object.values(infoWindowsRef.current).forEach((iw: any) => iw.close());
-      if (infoWindowsRef.current[targetShopName]) {
-        infoWindowsRef.current[targetShopName].open(mapRef.current, targetMarker);
+    if (targetShop) {
+      targetShopRef.current = targetShop.name;
+      if (mapRef.current && markersRef.current[targetShop.name]) {
+        const targetMarker = markersRef.current[targetShop.name];
+        mapRef.current.panTo(targetMarker.getPosition());
+        
+        Object.values(infoWindowsRef.current).forEach((iw: any) => iw.close());
+        if (infoWindowsRef.current[targetShop.name]) {
+          infoWindowsRef.current[targetShop.name].open(mapRef.current, targetMarker);
+        }
       }
     }
-  }, [targetShopName]);
+  }, [targetShop]);
 
   const initMap = () => {
     if (!window.naver || !window.naver.maps) return;
 
-    // 잠실/송파 부근 좌표
     const initialLocation = new window.naver.maps.LatLng(37.5147, 127.1042);
     
     const mapOptions = {
@@ -53,7 +55,6 @@ export default function NaverMap({
 
     mapRef.current = new window.naver.maps.Map(mapElement.current, mapOptions);
 
-    // ✨ 회사 위치 마커 그리는 함수 (무조건 찍히도록 분리)
     const drawOfficeMarker = (point: any) => {
       if (!targetShopRef.current) {
         mapRef.current.setCenter(point);
@@ -61,7 +62,7 @@ export default function NaverMap({
       new window.naver.maps.Marker({
         position: point,
         map: mapRef.current,
-        zIndex: 999, // 다른 마커들보다 무조건 위에 뜨도록 설정
+        zIndex: 999,
         icon: {
           content: '<div style="background: #2c3e50; color: white; padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 900; box-shadow: 0 4px 10px rgba(0,0,0,0.3); border: 2px solid white; white-space: nowrap;">🏢 KIPFA 사무실</div>',
           anchor: new window.naver.maps.Point(50, 40),
@@ -71,13 +72,12 @@ export default function NaverMap({
 
     if (window.naver.maps.Service) {
       window.naver.maps.Service.geocode(
-        { query: '송파구 올림픽로 293-19' }, // 검색어 간소화
+        { query: '송파구 올림픽로 293-19' },
         function (status: any, response: any) {
           if (status === window.naver.maps.Service.Status.OK && response.v2.meta.totalCount > 0) {
             const item = response.v2.addresses[0];
             drawOfficeMarker(new window.naver.maps.Point(item.x, item.y));
           } else {
-            // 주소를 못 찾으면 기본 좌표에라도 무조건 강제 표시!
             drawOfficeMarker(initialLocation);
           }
         }
