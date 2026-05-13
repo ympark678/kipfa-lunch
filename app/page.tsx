@@ -510,14 +510,19 @@ export default function LunchApp() {
         body { font-family: 'Pretendard', sans-serif; background-color: rgb(var(--bg-main-rgb)); margin: 0; padding: 0; color: var(--text-main); overscroll-behavior-y: contain; transition: background-color 0.3s, color 0.3s; }
         input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         input[type="number"] { -moz-appearance: textfield; }
-        .ptr-container { position: fixed; top: 0; left: 0; width: 100%; height: 60px; display: flex; justify-content: center; align-items: center; z-index: 50; pointer-events: none; }
+        
+        /* ✨ Z-index 수정: 최상단으로 끌어올림 */
+        .ptr-container { position: fixed; top: 0; left: 0; width: 100%; height: 60px; display: flex; justify-content: center; align-items: center; z-index: 9995; pointer-events: none; }
         .ptr-icon { width: 30px; height: 30px; background: var(--card-bg); color: var(--text-main); border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; justify-content: center; align-items: center; font-size: 16px; transition: transform 0.3s; }
         .ptr-icon.spinning { animation: spin 1s linear infinite; border: 3px solid var(--border); border-top: 3px solid #3498db; background: transparent; box-shadow: none; font-size: 0; }
         .container { max-width: 500px; margin: 0 auto; padding: 0 20px 90px 20px; } 
-        .sticky-top-area { position: sticky; top: 0; z-index: 100; padding: 20px 20px 10px 20px; margin: 0 -20px; background: transparent; border-bottom: 1px solid transparent; transition: all 0.3s ease; }
+        
+        /* ✨ 상단 고정바 Z-index 수정 */
+        .sticky-top-area { position: sticky; top: 0; z-index: 9999; padding: 20px 20px 10px 20px; margin: 0 -20px; background: transparent; border-bottom: 1px solid transparent; transition: all 0.3s ease; }
         .sticky-top-area.scrolled { background: rgba(var(--bg-main-rgb), 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
-        .section-title { position: sticky; top: var(--sticky-top); z-index: 80; font-size: 16px; color: var(--text-main); border-bottom: 2px solid #3498db; padding: 15px 20px 10px 20px; margin: 0 -20px 15px -20px; font-weight: 800; letter-spacing: -0.5px; background: rgba(var(--bg-main-rgb), 0.90); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
-        .filter-section { position: sticky; top: var(--sticky-top); z-index: 80; padding: 10px 20px; margin: 0 -20px 15px -20px; display: flex; flex-direction: column; gap: 12px; background: rgba(var(--bg-main-rgb), 0.90); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .section-title { position: sticky; top: var(--sticky-top); z-index: 9998; font-size: 16px; color: var(--text-main); border-bottom: 2px solid #3498db; padding: 15px 20px 10px 20px; margin: 0 -20px 15px -20px; font-weight: 800; letter-spacing: -0.5px; background: rgba(var(--bg-main-rgb), 0.90); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+        .filter-section { position: sticky; top: var(--sticky-top); z-index: 9998; padding: 10px 20px; margin: 0 -20px 15px -20px; display: flex; flex-direction: column; gap: 12px; background: rgba(var(--bg-main-rgb), 0.90); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        
         .filter-section.hidden { transform: translateY(-150%); pointer-events: none; }
         .pill-scroll-container { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
         .pill-scroll-container::-webkit-scrollbar { display: none; }
@@ -561,11 +566,11 @@ export default function LunchApp() {
         .like-btn:disabled, .dislike-btn:disabled { opacity: 0.6; cursor: wait; transform: none; }
         .btn-outline { width: 100%; background: var(--card-bg); padding: 12px; font-size: 14px; font-weight: 800; border-radius: 10px; cursor: pointer; border: 1px solid #3498db; color: #3498db; margin-top: 15px; transition: 0.2s; }
         .btn-outline:active { background: #3498db20; transform: scale(0.98); }
-        .fab-container { position: fixed; bottom: 25px; right: 25px; display: flex; flex-direction: column; gap: 12px; z-index: 1000; align-items: flex-end; }
+        .fab-container { position: fixed; bottom: 25px; right: 25px; display: flex; flex-direction: column; gap: 12px; z-index: 9999; align-items: flex-end; }
         .fab { background: linear-gradient(135deg, #3498db, #2ecc71); color: white; width: 56px; height: 56px; border-radius: 50%; font-size: 28px; border: none; box-shadow: 0 6px 20px rgba(46, 204, 113, 0.4); display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .fab:active { transform: scale(0.85); }
         .fab-secondary { background: var(--btn-secondary); color: var(--text-main); font-size: 26px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 2000; backdrop-filter: blur(3px); animation: fadeIn 0.2s ease-out; }
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 10000; backdrop-filter: blur(3px); animation: fadeIn 0.2s ease-out; }
         .modal-content { background: var(--modal-bg); padding: 25px; border-radius: 24px; width: 90%; max-width: 400px; max-height: 85vh; overflow-y: auto; text-align: left; box-shadow: 0 20px 40px rgba(0,0,0,0.4); animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; }
         .modal-title-sticky { position: sticky; top: -25px; background: var(--modal-bg); z-index: 10; margin: -25px -25px 20px -25px; padding: 25px 25px 12px 25px; border-bottom: 3px solid #3498db; font-size: 22px; font-weight: 900; color: var(--text-main); }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -733,9 +738,10 @@ export default function LunchApp() {
         <div className="menu-details">📍 {m.price}</div>
         
         <div style={{display:'flex', gap: '6px', marginBottom: '15px', marginTop: '10px'}}>
-          <a href={m.shop_url} target="_blank" style={{flex: 1, textAlign: 'center', background: 'var(--bg-main-rgb)', color: 'var(--text-main)', border: '1px solid var(--border)', padding: '8px', borderRadius: '8px', fontWeight: '800', fontSize: '12px', textDecoration: 'none'}}>🗺️ 네이버 지도에서 보기</a>
+          <a href={`https://map.naver.com/p/search/${encodeURIComponent(m.shop_name)}`} target="_blank" style={{flex: 1, textAlign: 'center', background: 'var(--bg-main-rgb)', color: 'var(--text-main)', border: '1px solid var(--border)', padding: '8px', borderRadius: '8px', fontWeight: '800', fontSize: '12px', textDecoration: 'none'}}>🗺️ 네이버 지도에서 보기</a>
           <button onClick={() => handleShowLocationOnMap(m.shop_name)} style={{flex: 1, textAlign: 'center', background: '#3498db15', color: '#3498db', border: '1px solid #3498db40', padding: '8px', borderRadius: '8px', fontWeight: '800', fontSize: '12px', cursor: 'pointer'}}>📍 지도 위치</button>
-          <a href={`https://m.map.naver.com/route.nhn?menu=route&ename=${encodeURIComponent(m.shop_name)}`} target="_blank" style={{flex: 1, textAlign: 'center', background: '#2ecc7115', color: '#27ae60', border: '1px solid #2ecc7140', padding: '8px', borderRadius: '8px', fontWeight: '800', fontSize: '12px', textDecoration: 'none'}}>🧭 길찾기</a>
+          {/* ✨ 스마트폰의 네이버 지도 앱으로 바로 연결되는 전용 길찾기 링크 적용! */}
+          <a href={`nmap://route/walk?dname=${encodeURIComponent(m.shop_name)}&appname=KIPFA`} style={{flex: 1, textAlign: 'center', background: '#2ecc7115', color: '#27ae60', border: '1px solid #2ecc7140', padding: '8px', borderRadius: '8px', fontWeight: '800', fontSize: '12px', textDecoration: 'none'}}>🧭 길찾기 (앱)</a>
         </div>
         
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
