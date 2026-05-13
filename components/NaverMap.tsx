@@ -17,46 +17,67 @@ export default function NaverMap({ menus = [] }: { menus?: any[] }) {
   const initMap = () => {
     if (!window.naver || !window.naver.maps) return;
 
-    // KIPFA 협회 근처로 기본 중심점 설정
-    const location = new window.naver.maps.LatLng(37.4811, 126.8833);
+    // 1. 지도 생성 (처음엔 임의의 위치로 생성)
     const mapOptions = {
-      center: location,
-      zoom: 15,
+      zoom: 16, // 부장님 회사 근처가 더 잘 보이게 줌 레벨을 살짝 올렸습니다
       minZoom: 10,
     };
 
     mapRef.current = new window.naver.maps.Map(mapElement.current, mapOptions);
+
+    // 2. 부장님 회사 주소(송파구 올림픽로 293-19)로 지도의 중심을 정확히 이동!
+    if (window.naver.maps.Service) {
+      window.naver.maps.Service.geocode(
+        { query: '서울시 송파구 올림픽로 293-19' },
+        function (status: any, response: any) {
+          if (status === window.naver.maps.Service.Status.OK && response.v2.meta.totalCount > 0) {
+            const item = response.v2.addresses[0];
+            const companyLocation = new window.naver.maps.Point(item.x, item.y);
+            mapRef.current.setCenter(companyLocation);
+            
+            // (선택) 회사 위치에도 특별한 마커(집 모양)를 하나 찍어줄 수 있습니다.
+            new window.naver.maps.Marker({
+              position: companyLocation,
+              map: mapRef.current,
+              icon: {
+                content: '<div style="background: #e74c3c; color: white; padding: 4px 8px; border-radius: 8px; font-size: 12px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">🏢 KIPFA</div>',
+                anchor: new window.naver.maps.Point(30, 15),
+              }
+            });
+          } else {
+            // 만약 주소 검색이 실패하면 대략적인 잠실역 근처로 이동
+            mapRef.current.setCenter(new window.naver.maps.LatLng(37.5151, 127.1040));
+          }
+        }
+      );
+    }
+
     renderMarkers();
   };
 
   const renderMarkers = () => {
-    // 지도나 geocoder가 로드되지 않았다면 중단
     if (!mapRef.current || !window.naver || !window.naver.maps || !window.naver.maps.Service) return;
 
-    // 기존에 찍혀있던 핀들 전부 지도에서 지우기
+    // 기존 핀 지우기
     markersRef.current.forEach(marker => marker.setMap(null));
     markersRef.current = [];
 
     menus.forEach(menu => {
-      // 도로명 주소 우선, 없으면 지번 주소 사용
       const targetAddress = menu.road_address || menu.address;
       if (!targetAddress) return;
 
-      // 주소를 위도/경도 좌표로 변환하는 마법!
       window.naver.maps.Service.geocode({ query: targetAddress }, function(status: any, response: any) {
         if (status !== window.naver.maps.Service.Status.OK || response.v2.meta.totalCount === 0) return;
 
         const item = response.v2.addresses[0];
         const point = new window.naver.maps.Point(item.x, item.y);
 
-        // 지도에 핀(마커) 꽂기
         const marker = new window.naver.maps.Marker({
           position: point,
           map: mapRef.current,
           title: menu.shop_name
         });
 
-        // 핀을 눌렀을 때 뜰 예쁜 말풍선(팝업) 디자인
         const infoWindow = new window.naver.maps.InfoWindow({
           content: `<div style="padding:15px; min-width:180px; font-family: Pretendard, sans-serif; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border-radius: 12px; background: white; border: 1px solid #eee;">
                        <div style="font-weight:900; font-size: 15px; margin-bottom: 4px; color: #333;">${menu.shop_name}</div>
@@ -69,7 +90,6 @@ export default function NaverMap({ menus = [] }: { menus?: any[] }) {
           pixelOffset: new window.naver.maps.Point(0, -10)
         });
 
-        // 마커 클릭 시 말풍선 열고 닫기
         window.naver.maps.Event.addListener(marker, "click", function() {
           if (infoWindow.getMap()) {
             infoWindow.close();
@@ -83,7 +103,6 @@ export default function NaverMap({ menus = [] }: { menus?: any[] }) {
     });
   };
 
-  // 메뉴 리스트가 바뀔 때마다 마커 새로 그리기
   useEffect(() => {
     renderMarkers();
   }, [menus]);
@@ -93,7 +112,6 @@ export default function NaverMap({ menus = [] }: { menus?: any[] }) {
       <Script
         strategy="afterInteractive"
         type="text/javascript"
-        // ⭐️ &submodules=geocoder 추가 (주소 -> 좌표 변환기능)
         src={`https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${process.env.NEXT_PUBLIC_NAVER_CLIENT_ID}&submodules=geocoder`}
         onReady={initMap}
       />
