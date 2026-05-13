@@ -27,7 +27,6 @@ export default function NaverMap({
   const lastPanTimeRef = useRef<number | null>(null);
   const geocodeCache = useRef<{ [key: string]: any }>({});
 
-  // ✨ 말풍선을 클릭했을 때 (React 외부의) 이벤트를 감지하는 리스너 추가!
   useEffect(() => {
     const handleMapClick = (e: any) => {
       if (onMarkerClick) onMarkerClick(e.detail);
@@ -57,8 +56,8 @@ export default function NaverMap({
   const initMap = () => {
     if (!window.naver || !window.naver.maps) return;
 
-    // ✨ KIPFA 사무실 (잠실 현대타워)의 정확한 GPS 절대 좌표 고정!
-    const officeLocation = new window.naver.maps.LatLng(37.516140, 127.100460);
+    // ✨ 캡처해주신 녹색 점 위치(대한제당 부근)의 정확한 GPS 좌표로 변경 완료!
+    const officeLocation = new window.naver.maps.LatLng(37.514750, 127.102900);
     
     const mapOptions = {
       center: officeLocation,
@@ -87,7 +86,6 @@ export default function NaverMap({
       });
     };
 
-    // 주소 검색 없이 무조건 절대 좌표에 KIPFA를 찍습니다.
     drawOfficeMarker(officeLocation);
     renderMarkers();
   };
@@ -99,7 +97,6 @@ export default function NaverMap({
       title: menu.shop_name
     });
 
-    // ✨ 말풍선 안에 클릭 이벤트를 심어두었습니다.
     const infoWindow = new window.naver.maps.InfoWindow({
       content: `
         <div style="padding:12px; min-width:140px; font-family: Pretendard; cursor:pointer; text-align:center;" 
@@ -114,7 +111,6 @@ export default function NaverMap({
       pixelOffset: new window.naver.maps.Point(0, -10)
     });
 
-    // ✨ 1단계: 핀을 누르면 말풍선만 열립니다! (아래로 내려가지 않음)
     window.naver.maps.Event.addListener(marker, "click", () => {
       Object.values(infoWindowsRef.current).forEach((iw: any) => iw.close());
       infoWindow.open(mapRef.current, marker);
