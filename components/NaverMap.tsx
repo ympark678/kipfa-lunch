@@ -24,7 +24,6 @@ export default function NaverMap({
   const infoWindowsRef = useRef<{ [key: string]: any }>({});
   const targetShopRef = useRef(targetShopName);
   
-  // ✨ 성능 개선의 핵심! 한 번 찾은 좌표를 기억하는 캐시 메모리
   const geocodeCache = useRef<{ [key: string]: any }>({});
 
   useEffect(() => {
@@ -43,6 +42,7 @@ export default function NaverMap({
   const initMap = () => {
     if (!window.naver || !window.naver.maps) return;
 
+    // 잠실/송파 부근 좌표
     const initialLocation = new window.naver.maps.LatLng(37.5147, 127.1042);
     
     const mapOptions = {
@@ -53,30 +53,39 @@ export default function NaverMap({
 
     mapRef.current = new window.naver.maps.Map(mapElement.current, mapOptions);
 
+    // ✨ 회사 위치 마커 그리는 함수 (무조건 찍히도록 분리)
+    const drawOfficeMarker = (point: any) => {
+      if (!targetShopRef.current) {
+        mapRef.current.setCenter(point);
+      }
+      new window.naver.maps.Marker({
+        position: point,
+        map: mapRef.current,
+        zIndex: 999, // 다른 마커들보다 무조건 위에 뜨도록 설정
+        icon: {
+          content: '<div style="background: #2c3e50; color: white; padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 900; box-shadow: 0 4px 10px rgba(0,0,0,0.3); border: 2px solid white; white-space: nowrap;">🏢 KIPFA 사무실</div>',
+          anchor: new window.naver.maps.Point(50, 40),
+        }
+      });
+    };
+
     if (window.naver.maps.Service) {
       window.naver.maps.Service.geocode(
-        { query: '서울시 송파구 올림픽로 293-19' },
+        { query: '송파구 올림픽로 293-19' }, // 검색어 간소화
         function (status: any, response: any) {
           if (status === window.naver.maps.Service.Status.OK && response.v2.meta.totalCount > 0) {
             const item = response.v2.addresses[0];
-            const companyLocation = new window.naver.maps.Point(item.x, item.y);
-            
-            if (!targetShopRef.current) {
-              mapRef.current.setCenter(companyLocation);
-            }
-            
-            new window.naver.maps.Marker({
-              position: companyLocation,
-              map: mapRef.current,
-              icon: {
-                content: '<div style="background: #e74c3c; color: white; padding: 4px 8px; border-radius: 8px; font-size: 12px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">🏢 KIPFA</div>',
-                anchor: new window.naver.maps.Point(30, 15),
-              }
-            });
+            drawOfficeMarker(new window.naver.maps.Point(item.x, item.y));
+          } else {
+            // 주소를 못 찾으면 기본 좌표에라도 무조건 강제 표시!
+            drawOfficeMarker(initialLocation);
           }
         }
       );
+    } else {
+      drawOfficeMarker(initialLocation);
     }
+    
     renderMarkers();
   };
 
@@ -125,7 +134,6 @@ export default function NaverMap({
       const targetAddress = menu.road_address || menu.address;
       if (!targetAddress) return;
 
-      // ✨ 캐시에 좌표가 있으면 API 호출 없이 즉시 그리기 (속도 개선)
       if (geocodeCache.current[targetAddress]) {
         drawMarker(menu, geocodeCache.current[targetAddress]);
       } else {
@@ -133,7 +141,7 @@ export default function NaverMap({
           if (status === window.naver.maps.Service.Status.OK && response.v2.meta.totalCount > 0) {
             const item = response.v2.addresses[0];
             const point = new window.naver.maps.Point(item.x, item.y);
-            geocodeCache.current[targetAddress] = point; // 찾은 좌표 저장
+            geocodeCache.current[targetAddress] = point; 
             drawMarker(menu, point);
           }
         });
