@@ -56,8 +56,8 @@ export default function NaverMap({
   const initMap = () => {
     if (!window.naver || !window.naver.maps) return;
 
-    // ✨ 공원 안쪽으로 들어갔던 좌표를 남쪽으로 살짝 내렸습니다!
-    const officeLocation = new window.naver.maps.LatLng(37.514450, 127.102250);
+    // ✨ 캡처해주신 녹색 점 위치(현대타워 건물 정중앙)의 초정밀 GPS 좌표!
+    const officeLocation = new window.naver.maps.LatLng(37.515300, 127.100700);
     
     const mapOptions = {
       center: officeLocation,
@@ -86,6 +86,7 @@ export default function NaverMap({
       });
     };
 
+    // 주소 검색기 오류를 방지하기 위해 무조건 절대 좌표에 찍어버립니다.
     drawOfficeMarker(officeLocation);
     renderMarkers();
   };
