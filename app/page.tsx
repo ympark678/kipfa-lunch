@@ -14,6 +14,7 @@ const CATEGORY_EMOJI: Record<string, string> = {
   "한식": "🍚 한식", "중식": "🥢 중식", "일식": "🍣 일식", "양식": "🍝 양식", "분식": "🥘 분식", "기타": "🍽️ 기타"
 };
 
+// ✨ 네이버 카테고리 매칭 함수 추가
 const mapCategory = (naverCategory: string) => {
   if (naverCategory.includes('한식')) return '한식';
   if (naverCategory.includes('중식')) return '중식';
@@ -51,13 +52,16 @@ export default function LunchApp() {
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [deleteReason, setDeleteReason] = useState("폐업/이전");
 
+  // ✨ 검색 관련 상태 추가
   const [keyword, setKeyword] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [isMapOpen, setIsMapOpen] = useState(false);
 
+  // ✨ formData에 address, road_address 추가
   const [formData, setFormData] = useState({
     visitDate: "", category: "한식", shopName: "", shopUrl: "",
-    priceMin: "9,000", priceMax: "15,000", menu1: "", menu2: "", menu3: "" 
+    priceMin: "9,000", priceMax: "15,000", menu1: "", menu2: "", menu3: "", address: "", road_address: ""
   });
 
   const [isRouletteOpen, setIsRouletteOpen] = useState(false);
@@ -146,6 +150,7 @@ export default function LunchApp() {
     }
   };
 
+  // ✨ 네이버 맛집 검색 실행
   const searchShop = async () => {
     if (!keyword.trim()) return;
     setIsSearching(true);
@@ -161,17 +166,20 @@ export default function LunchApp() {
     }
   };
 
+  // ✨ 검색 결과 선택 시 주소까지 자동 입력
   const selectShop = (item: any) => {
-    const cleanTitle = item.title.replace(/<[^>]*>?/gm, ''); 
+    const cleanTitle = item.title.replace(/<[^>]*>?/gm, '');
     setFormData(prev => ({
       ...prev,
       shopName: cleanTitle,
       shopUrl: `https://map.naver.com/v5/search/${encodeURIComponent(cleanTitle)}`,
-      category: mapCategory(item.category)
+      category: mapCategory(item.category),
+      address: item.address || '',
+      road_address: item.roadAddress || ''
     }));
     setSearchResults([]);
     setKeyword("");
-    showToast(`✨ '${cleanTitle}' 정보 가져오기 성공!`);
+    showToast(`✅ ${cleanTitle} 정보 입력 완료!`);
     checkDuplicate('name', cleanTitle);
   };
 
@@ -280,13 +288,15 @@ export default function LunchApp() {
       ...prev, category: m.category || '한식', shopName: m.shop_name || '', shopUrl: m.shop_url || '',
       menu1: ms[0] || '', menu2: ms[1] || '', menu3: ms[2] || '',
       priceMin: (ps && ps[0]) ? ps[0] : "9,000", priceMax: (ps && ps[1]) ? ps[1] : "15,000",
-      visitDate: formattedDate
+      visitDate: formattedDate,
+      address: m.address || '',
+      road_address: m.road_address || ''
     }));
   };
 
   const openAddModal = () => {
     setModalMode("add"); setEditTargetId(null);
-    setFormData({ visitDate: dateOptions[0]?.value || "", category: "한식", shopName: "", shopUrl: "", priceMin: "9,000", priceMax: "15,000", menu1: "", menu2: "", menu3: "" });
+    setFormData({ visitDate: dateOptions[0]?.value || "", category: "한식", shopName: "", shopUrl: "", priceMin: "9,000", priceMax: "15,000", menu1: "", menu2: "", menu3: "", address: "", road_address: "" });
     setIsModalOpen(true);
   };
 
@@ -322,7 +332,8 @@ export default function LunchApp() {
     try {
       const payload = { 
         author: session?.name, visit_date: cleanDate, category: formData.category, shop_name: formData.shopName.trim(), 
-        shop_url: cleanUrl.startsWith('http') ? cleanUrl : `https://${cleanUrl}`, menu_details: combinedMenus, price: `${formData.priceMin}원 ~ ${formData.priceMax}원`
+        shop_url: cleanUrl.startsWith('http') ? cleanUrl : `https://${cleanUrl}`, menu_details: combinedMenus, price: `${formData.priceMin}원 ~ ${formData.priceMax}원`,
+        address: formData.address, road_address: formData.road_address
       };
       let errorResponse;
 
@@ -565,11 +576,38 @@ export default function LunchApp() {
               <div><span id="user-info">👋 {session.name}님</span><button className="logout-btn" onClick={handleLogout}>로그아웃</button></div>
             </div>
             <div className="tabs"><div className={`tab ${activeTab === 'pick' ? 'active' : ''}`} onClick={() => setActiveTab('pick')}>📅 이번주/다음주 Pick</div><div className={`tab ${activeTab === 'all' ? 'active' : ''}`} onClick={() => setActiveTab('all')}>📂 전체 맛집 보기</div></div>
+            
+            <div style={{ textAlign: 'center', margin: '15px 0 5px 0' }}>
+              <button
+                onClick={() => setIsMapOpen(!isMapOpen)}
+                style={{
+                  background: isMapOpen ? '#3498db' : 'white',
+                  color: isMapOpen ? 'white' : '#3498db',
+                  border: '2px solid #3498db',
+                  padding: '8px 20px',
+                  borderRadius: '30px',
+                  fontSize: '14px',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  transition: '0.2s',
+                  boxShadow: '0 4px 10px rgba(52,152,219,0.1)'
+                }}
+              >
+                {isMapOpen ? '🗺️ 지도 닫기 ▲' : '🗺️ 지도로 보기 ▼'}
+              </button>
+            </div>
           </div>
+          
           {isInitialLoading ? (
             <div style={{marginTop: '20px'}}><h3 className="section-title">데이터 로딩 중...</h3>{[1, 2, 3].map(i => (<div key={i} className="skeleton-card"><div className="skeleton" style={{width:'60px', height:'24px', marginBottom:'12px'}}></div><div className="skeleton" style={{width:'40%', height:'16px', marginBottom:'10px'}}></div><div className="skeleton" style={{width:'70%', height:'28px', marginBottom:'15px'}}></div><div className="skeleton" style={{width:'100%', height:'40px', borderRadius:'10px'}}></div></div>))}</div>
           ) : (
-            <div style={{marginTop: '20px'}}>
+            <div style={{marginTop: '10px'}}>
+              {isMapOpen && (
+                <div style={{ marginBottom: '20px' }}>
+                  <NaverMap menus={activeTab === 'pick' ? [...filteredData.tw, ...filteredData.nw] : filteredData.allF} />
+                </div>
+              )}
+
               {activeTab === 'pick' && (
                 <div><h3 className="section-title">🎯 이번주 수/금 회식 후보</h3>{filteredData.tw.length === 0 ? <div className="empty-state"><div className="empty-icon">🍳</div><div className="empty-title">후보가 없습니다.</div><div className="empty-desc">새로운 맛집을 공유해 주세요.</div></div> : filteredData.tw.map(m => <Card key={m.id} menu={m} type="pick" />)}<h3 className="section-title">🗓️ 다음주 수/금 회식 후보</h3>{filteredData.nw.length === 0 ? <div className="empty-state"><div className="empty-icon">🗓️</div><div className="empty-title">후보가 없습니다.</div><div className="empty-desc">새로운 맛집을 공유해 주세요.</div></div> : filteredData.nw.map(m => <Card key={m.id} menu={m} type="pick" />)}</div>
               )}
@@ -582,10 +620,6 @@ export default function LunchApp() {
                   </div>
                   </div>
                   
-                  <div style={{ marginBottom: '20px' }}>
-                    <NaverMap />
-                  </div>
-
                   {filteredData.allF.length === 0 ? <div className="empty-state" style={{marginTop: '40px'}}><div className="empty-icon">🔍</div><div className="empty-title">결과가 없습니다.</div></div> : filteredData.allF.map(m => <Card key={m.id} menu={m} type="all" />)}
                 </div>
               )}
@@ -602,18 +636,18 @@ export default function LunchApp() {
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="modal-title-sticky">{modalMode === 'add' ? '✨ 새로운 메뉴 추천' : modalMode === 'edit' ? '✏️ 추천 정보 수정' : '🔄 다시 Pick 하기'}</div>
             
-            <div className="form-group" style={{background: '#f8f9fa', padding: '15px', borderRadius: '12px', border: '1px solid #e9ecef', marginBottom: '18px'}}>
-              <label>🔍 네이버 맛집 검색 (이름 클릭시 자동입력)</label>
+            <div className="form-group" style={{background: 'var(--bg-main-rgb)', padding: '15px', borderRadius: '12px', border: '1px solid var(--border)', marginBottom: '18px'}}>
+              <label>🔍 네이버 맛집 검색 (결과 클릭시 자동입력)</label>
               <div style={{display: 'flex', gap: '8px'}}>
-                <input type="text" placeholder="가게명 또는 지역+가게명" value={keyword} onChange={e => setKeyword(e.target.value)} onKeyDown={e => e.key === 'Enter' && searchShop()} />
+                <input type="text" placeholder="가게명 (예: 가산동 돈까스)" value={keyword} onChange={e => setKeyword(e.target.value)} onKeyDown={e => e.key === 'Enter' && searchShop()} style={{flex: 1}}/>
                 <button className="btn" style={{width: '80px', padding: '0'}} onClick={searchShop} disabled={isSearching}>{isSearching ? '...' : '검색'}</button>
               </div>
               {searchResults.length > 0 && (
-                <div style={{marginTop: '10px', background: 'white', borderRadius: '8px', border: '1px solid #ddd', overflow: 'hidden'}}>
+                <div style={{marginTop: '10px', background: 'var(--input-bg)', borderRadius: '8px', border: '1px solid var(--border)', overflow: 'hidden'}}>
                   {searchResults.map((item, idx) => (
-                    <div key={idx} onClick={() => selectShop(item)} style={{padding: '10px', borderBottom: '1px solid #eee', cursor: 'pointer', fontSize: '13px'}}>
-                      <div style={{fontWeight: 'bold'}} dangerouslySetInnerHTML={{__html: item.title}}></div>
-                      <div style={{fontSize: '11px', color: '#888'}}>{item.category} | {item.address}</div>
+                    <div key={idx} onClick={() => selectShop(item)} style={{padding: '12px', borderBottom: '1px solid var(--border)', cursor: 'pointer', transition: '0.2s'}} onMouseOver={e => (e.currentTarget.style.background = '#f1f3f5')} onMouseOut={e => (e.currentTarget.style.background = 'transparent')}>
+                      <div style={{fontWeight: '800', fontSize: '14px', marginBottom: '4px'}} dangerouslySetInnerHTML={{__html: item.title}}></div>
+                      <div style={{fontSize: '11px', color: 'var(--text-sub)', fontWeight: '600'}}>{item.category} | {item.address}</div>
                     </div>
                   ))}
                 </div>
@@ -654,11 +688,11 @@ export default function LunchApp() {
     return (
       <div className="menu-card">{type === 'all' && (<div className="card-top-actions"><button className="btn-mini" onClick={() => openEditModal(m, false)}>✏️ 수정</button><button className="btn-mini danger" onClick={() => { setDeleteTargetId(m.id); setIsDeleteModalOpen(true); }} disabled={isDeleteRequested}>{isDeleteRequested ? '요청중' : '🗑️ 삭제'}</button></div>)}{isDeleteRequested && <div className="tag-deleted">🚨 삭제 요청 검토 중: {m.delete_reason || '사유 미상'}</div>}<div className="tag-container"><span className="tag">{CATEGORY_EMOJI[m.category] || m.category}</span><span className="tag tag-date">📅 {dateStr}</span>{type === 'all' && isPicked && <span className="tag tag-status">🎯 Pick 완료</span>}</div><div style={{fontWeight:'800', color:'var(--text-sub)', marginBottom:'5px', fontSize:'12px'}}>🏠 {m.shop_name}</div><h3>{m.menu_details}</h3><div className="menu-details">📍 {m.price}</div><div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
         
-        <div style={{display:'flex', gap: '8px'}}>
-          <a href={m.shop_url} target="_blank" className="map-link">🗺️ 지도/정보 보기</a>
+        <div style={{display:'flex', gap: '6px'}}>
+          <a href={m.shop_url} target="_blank" className="map-link">🗺️ 정보</a>
           <a href={`https://map.naver.com/v5/directions/KIPFA/${encodeURIComponent(m.shop_name)}/-/walk`} target="_blank" className="map-link" style={{background: '#2ecc7120', color: '#27ae60'}}>🧭 길찾기</a>
         </div>
-
+        
         {type === 'pick' ? (<div className="reaction-group"><button className={`like-btn ${likes.includes(session?.pin as string) ? 'liked' : ''}`} onClick={() => toggleReaction(m.id, 'toggle_like')} disabled={isLiking || isDisliking}>{isLiking ? '⏳' : (likes.includes(session?.pin as string) ? '❤️' : '🤍')} {likes.length}</button><button className={`dislike-btn ${dislikes.includes(session?.pin as string) ? 'liked' : ''}`} onClick={() => toggleReaction(m.id, 'toggle_dislike')} disabled={isLiking || isDisliking}>{isDisliking ? '⏳' : (dislikes.includes(session?.pin as string) ? '💔' : '👎')} {dislikes.length}</button></div>) : (<span style={{fontSize:'12px', color:'#e74c3c', fontWeight:'800', background:'#e74c3c20', padding:'6px 12px', borderRadius:'12px'}}>❤️ 좋아요 {likes.length}개</span>)}</div>{type === 'all' && (<div style={{display: 'flex', gap: '10px', marginTop: '15px'}}><button className="btn-outline" style={{flex: 2}} onClick={() => openEditModal(m, true)}>🔄 다시 Pick 하기</button><button className="btn-outline" style={{flex: 1, borderColor: 'var(--border)', color: 'var(--text-sub)'}} onClick={() => copyToClipboard(`[맛집 추천] ${m.shop_name}\n🍽️ 메뉴: ${m.menu_details}\n📍 ${m.shop_url}`)}>📤 공유</button></div>)}</div>
     );
   }
