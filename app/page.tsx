@@ -14,7 +14,6 @@ const CATEGORY_EMOJI: Record<string, string> = {
   "한식": "🍚 한식", "중식": "🥢 중식", "일식": "🍣 일식", "양식": "🍝 양식", "분식": "🥘 분식", "기타": "🍽️ 기타"
 };
 
-// ✨ 네이버 카테고리 매칭 함수 추가
 const mapCategory = (naverCategory: string) => {
   if (naverCategory.includes('한식')) return '한식';
   if (naverCategory.includes('중식')) return '중식';
@@ -52,16 +51,14 @@ export default function LunchApp() {
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [deleteReason, setDeleteReason] = useState("폐업/이전");
 
-  // ✨ 검색 관련 상태 추가
   const [keyword, setKeyword] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isMapOpen, setIsMapOpen] = useState(false);
 
-  // ✨ formData에 address, road_address 추가
+  // ✨ 메뉴, 가격 입력칸 제거 후 심플해진 formData
   const [formData, setFormData] = useState({
-    visitDate: "", category: "한식", shopName: "", shopUrl: "",
-    priceMin: "9,000", priceMax: "15,000", menu1: "", menu2: "", menu3: "", address: "", road_address: ""
+    visitDate: "", category: "한식", shopName: "", shopUrl: "", address: "", road_address: ""
   });
 
   const [isRouletteOpen, setIsRouletteOpen] = useState(false);
@@ -86,12 +83,6 @@ export default function LunchApp() {
       }
       return null;
     }).filter(Boolean) as {label: string, value: string}[];
-  }, []);
-
-  const priceOptions = useMemo(() => {
-    const opts = [];
-    for (let i = 500; i <= 50000; i += 500) opts.push(i.toLocaleString());
-    return opts;
   }, []);
 
   const showToast = (message: string) => {
@@ -150,12 +141,18 @@ export default function LunchApp() {
     }
   };
 
-  // ✨ 네이버 맛집 검색 실행
+  // ✨ 송파구 자동 한정 검색 로직
   const searchShop = async () => {
     if (!keyword.trim()) return;
     setIsSearching(true);
+
+    let finalKeyword = keyword.trim();
+    if (!finalKeyword.includes('송파') && !finalKeyword.includes('잠실') && !finalKeyword.includes('방이') && !finalKeyword.includes('가락')) {
+      finalKeyword = `송파구 ${finalKeyword}`;
+    }
+
     try {
-      const res = await fetch(`/api/search?query=${encodeURIComponent(keyword)}`);
+      const res = await fetch(`/api/search?query=${encodeURIComponent(finalKeyword)}`);
       const data = await res.json();
       setSearchResults(data.items || []);
       if (data.items?.length === 0) showToast("검색 결과가 없습니다.");
@@ -166,7 +163,6 @@ export default function LunchApp() {
     }
   };
 
-  // ✨ 검색 결과 선택 시 주소까지 자동 입력
   const selectShop = (item: any) => {
     const cleanTitle = item.title.replace(/<[^>]*>?/gm, '');
     setFormData(prev => ({
@@ -279,24 +275,18 @@ export default function LunchApp() {
   };
 
   const fillFormWithData = (m: any) => {
-    const ms = String(m.menu_details || '').split(', ');
-    const ps = String(m.price || '').match(/[\d,]+/g);
     let formattedDate = m.visit_date || dateOptions[0]?.value || "";
     if (formattedDate && formattedDate.includes('.')) formattedDate = formattedDate.replace(/\./g, '-');
 
     setFormData(prev => ({
       ...prev, category: m.category || '한식', shopName: m.shop_name || '', shopUrl: m.shop_url || '',
-      menu1: ms[0] || '', menu2: ms[1] || '', menu3: ms[2] || '',
-      priceMin: (ps && ps[0]) ? ps[0] : "9,000", priceMax: (ps && ps[1]) ? ps[1] : "15,000",
-      visitDate: formattedDate,
-      address: m.address || '',
-      road_address: m.road_address || ''
+      visitDate: formattedDate, address: m.address || '', road_address: m.road_address || ''
     }));
   };
 
   const openAddModal = () => {
     setModalMode("add"); setEditTargetId(null);
-    setFormData({ visitDate: dateOptions[0]?.value || "", category: "한식", shopName: "", shopUrl: "", priceMin: "9,000", priceMax: "15,000", menu1: "", menu2: "", menu3: "", address: "", road_address: "" });
+    setFormData({ visitDate: dateOptions[0]?.value || "", category: "한식", shopName: "", shopUrl: "", address: "", road_address: "" });
     setIsModalOpen(true);
   };
 
@@ -313,7 +303,7 @@ export default function LunchApp() {
   };
 
   const handleModalSubmit = async () => {
-    if (!formData.shopName.trim() || !formData.menu1.trim()) return showToast("⚠️ 가게명, 대표메뉴1을 입력하세요.");
+    if (!formData.shopName.trim()) return showToast("⚠️ 가게명을 입력하세요.");
     const cleanDate = formData.visitDate.replace(/\./g, '-').trim();
 
     const duplicate = menus.find(m => {
@@ -327,12 +317,12 @@ export default function LunchApp() {
     setIsLoading(true);
     const urlMatch = formData.shopUrl.match(/(https?:\/\/[^\s]+)/);
     const cleanUrl = urlMatch ? urlMatch[1] : formData.shopUrl;
-    const combinedMenus = [formData.menu1, formData.menu2, formData.menu3].filter(Boolean).join(", ");
     
     try {
       const payload = { 
         author: session?.name, visit_date: cleanDate, category: formData.category, shop_name: formData.shopName.trim(), 
-        shop_url: cleanUrl.startsWith('http') ? cleanUrl : `https://${cleanUrl}`, menu_details: combinedMenus, price: `${formData.priceMin}원 ~ ${formData.priceMax}원`,
+        shop_url: cleanUrl.startsWith('http') ? cleanUrl : `https://${cleanUrl}`, 
+        menu_details: "", price: "", // 더 이상 쓰지 않는 값들은 비워둡니다
         address: formData.address, road_address: formData.road_address
       };
       let errorResponse;
@@ -519,7 +509,7 @@ export default function LunchApp() {
         .menu-card { background: var(--card-bg); padding: 20px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.04); margin-bottom: 18px; border: 1px solid var(--border); position: relative; transition: 0.2s; }
         .menu-card:active { transform: scale(0.98); opacity: 0.9; }
         .card-top-actions { position: absolute; top: 18px; right: 18px; display: flex; gap: 6px; z-index: 5; }
-        .menu-card h3 { margin: 0 0 6px 0; font-size: 18px; color: var(--text-main); padding-right: 90px; word-break: keep-all; font-weight: 800; letter-spacing: -0.5px; }
+        .menu-card h3 { margin: 0 0 6px 0; font-size: 20px; color: var(--text-main); padding-right: 90px; word-break: keep-all; font-weight: 900; letter-spacing: -0.5px; }
         .tag-container { margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 5px; padding-right: 90px; position: relative; z-index: 1; }
         .tag { display: inline-flex; align-items: center; background: var(--border); color: var(--text-main); padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; white-space: nowrap; opacity: 0.8;}
         .btn-mini { background: rgb(var(--bg-main-rgb)); border: 1px solid var(--border); padding: 5px 8px; border-radius: 6px; font-size: 11px; font-weight: 800; cursor: pointer; color: var(--text-sub); transition: 0.2s; }
@@ -528,7 +518,6 @@ export default function LunchApp() {
         .tag-date { background: #f08c0020; color: #f08c00; border: 1px solid #f08c0040;}
         .tag-status { background: #3498db20; color: #3498db; border: 1px solid #3498db40; } 
         .tag-deleted { background: #e74c3c20; color: #e74c3c; width: 100%; text-align: center; margin-bottom: 12px; font-size: 13px; padding: 8px; border-radius: 8px; font-weight: 800; box-sizing: border-box; }
-        .menu-details { font-size: 13px; color: var(--text-sub); line-height: 1.6; margin-bottom: 15px; background: rgb(var(--bg-main-rgb)); padding: 12px; border-radius: 10px; font-weight: 600; }
         .map-link { color: #e67e22; text-decoration: none; font-weight: 800; font-size: 13px; background: #e67e2220; padding: 6px 12px; border-radius: 20px; transition: 0.2s; display: inline-block; }
         .map-link:active { transform: scale(0.95); }
         .reaction-group { display: flex; gap: 8px; }
@@ -577,11 +566,12 @@ export default function LunchApp() {
             </div>
             <div className="tabs"><div className={`tab ${activeTab === 'pick' ? 'active' : ''}`} onClick={() => setActiveTab('pick')}>📅 이번주/다음주 Pick</div><div className={`tab ${activeTab === 'all' ? 'active' : ''}`} onClick={() => setActiveTab('all')}>📂 전체 맛집 보기</div></div>
             
+            {/* ⭐️ 지도 펼치기/접기 아코디언 버튼 */}
             <div style={{ textAlign: 'center', margin: '15px 0 5px 0' }}>
               <button
                 onClick={() => setIsMapOpen(!isMapOpen)}
                 style={{
-                  background: isMapOpen ? '#3498db' : 'white',
+                  background: isMapOpen ? '#3498db' : 'var(--card-bg)',
                   color: isMapOpen ? 'white' : '#3498db',
                   border: '2px solid #3498db',
                   padding: '8px 20px',
@@ -602,6 +592,7 @@ export default function LunchApp() {
             <div style={{marginTop: '20px'}}><h3 className="section-title">데이터 로딩 중...</h3>{[1, 2, 3].map(i => (<div key={i} className="skeleton-card"><div className="skeleton" style={{width:'60px', height:'24px', marginBottom:'12px'}}></div><div className="skeleton" style={{width:'40%', height:'16px', marginBottom:'10px'}}></div><div className="skeleton" style={{width:'70%', height:'28px', marginBottom:'15px'}}></div><div className="skeleton" style={{width:'100%', height:'40px', borderRadius:'10px'}}></div></div>))}</div>
           ) : (
             <div style={{marginTop: '10px'}}>
+              {/* ⭐️ 지도가 펼쳐졌을 때 나타나는 영역 */}
               {isMapOpen && (
                 <div style={{ marginBottom: '20px' }}>
                   <NaverMap menus={activeTab === 'pick' ? [...filteredData.tw, ...filteredData.nw] : filteredData.allF} />
@@ -628,18 +619,22 @@ export default function LunchApp() {
         </div>
       </div>
       <div className="fab-container">{activeTab === 'pick' && <button className="fab fab-secondary" onClick={spinRoulette}>🎲</button>}<button className="fab" onClick={openAddModal}>＋</button></div>
+      
+      {/* ✨ 룰렛 결과 UI 수정 (메뉴 텍스트 대신 카테고리와 가게명 강조) */}
       {isRouletteOpen && (
-        <div className="modal" onClick={() => !isSpinning && setIsRouletteOpen(false)}><div className="modal-content" style={{textAlign: 'center', padding: '40px 20px'}} onClick={e => e.stopPropagation()}><div className="modal-title-sticky" style={{textAlign: 'left', marginBottom: '20px'}}>🎲 오늘의 회식 Pick은?</div>{rouletteResult && (<div style={{background: 'rgb(var(--bg-main-rgb))', padding: '30px 20px', borderRadius: '20px', border: '2px solid var(--border)', marginBottom: '20px'}}><div style={{fontSize: '32px', marginBottom: '10px'}}>{CATEGORY_EMOJI[rouletteResult.category]?.split(' ')[0] || '🍽️'}</div><div style={{fontSize: '14px', color: 'var(--text-sub)', fontWeight: '800', marginBottom: '5px'}}>{rouletteResult.shop_name}</div><div style={{fontSize: '22px', fontWeight: '900', color: '#3498db', wordBreak: 'keep-all'}}>{rouletteResult.menu_details}</div></div>)}<button className="btn" onClick={spinRoulette} disabled={isSpinning}>{isSpinning ? '고르는 중...' : '다시 돌리기 🔄'}</button>{!isSpinning && rouletteResult && (<button className="btn-outline" onClick={() => copyToClipboard(`[오늘의 점심 룰렛 결과!]\n🏠 ${rouletteResult.shop_name}\n🍽️ 메뉴: ${rouletteResult.menu_details}\n📍 ${rouletteResult.shop_url}`)}>📤 결과 공유하기</button>)}</div></div>
+        <div className="modal" onClick={() => !isSpinning && setIsRouletteOpen(false)}><div className="modal-content" style={{textAlign: 'center', padding: '40px 20px'}} onClick={e => e.stopPropagation()}><div className="modal-title-sticky" style={{textAlign: 'left', marginBottom: '20px'}}>🎲 오늘의 회식 Pick은?</div>{rouletteResult && (<div style={{background: 'rgb(var(--bg-main-rgb))', padding: '30px 20px', borderRadius: '20px', border: '2px solid var(--border)', marginBottom: '20px'}}><div style={{fontSize: '32px', marginBottom: '10px'}}>{CATEGORY_EMOJI[rouletteResult.category]?.split(' ')[0] || '🍽️'}</div><div style={{fontSize: '14px', color: 'var(--text-sub)', fontWeight: '800', marginBottom: '5px'}}>{rouletteResult.category}</div><div style={{fontSize: '24px', fontWeight: '900', color: '#3498db', wordBreak: 'keep-all'}}>{rouletteResult.shop_name}</div></div>)}<button className="btn" onClick={spinRoulette} disabled={isSpinning}>{isSpinning ? '고르는 중...' : '다시 돌리기 🔄'}</button>{!isSpinning && rouletteResult && (<button className="btn-outline" onClick={() => copyToClipboard(`[오늘의 점심 룰렛 결과!]\n🏠 ${rouletteResult.shop_name}\n📍 ${rouletteResult.shop_url}`)}>📤 결과 공유하기</button>)}</div></div>
       )}
+      
+      {/* ✨ 메뉴입력칸과 가격대가 삭제된 아주 심플한 등록 모달! */}
       {isModalOpen && (
         <div className="modal" onClick={() => setIsModalOpen(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <div className="modal-title-sticky">{modalMode === 'add' ? '✨ 새로운 메뉴 추천' : modalMode === 'edit' ? '✏️ 추천 정보 수정' : '🔄 다시 Pick 하기'}</div>
+            <div className="modal-title-sticky">{modalMode === 'add' ? '✨ 새로운 맛집 추천' : modalMode === 'edit' ? '✏️ 추천 정보 수정' : '🔄 다시 Pick 하기'}</div>
             
             <div className="form-group" style={{background: 'var(--bg-main-rgb)', padding: '15px', borderRadius: '12px', border: '1px solid var(--border)', marginBottom: '18px'}}>
               <label>🔍 네이버 맛집 검색 (결과 클릭시 자동입력)</label>
               <div style={{display: 'flex', gap: '8px'}}>
-                <input type="text" placeholder="가게명 (예: 가산동 돈까스)" value={keyword} onChange={e => setKeyword(e.target.value)} onKeyDown={e => e.key === 'Enter' && searchShop()} style={{flex: 1}}/>
+                <input type="text" placeholder="예: 돈까스 (송파구 자동 포함)" value={keyword} onChange={e => setKeyword(e.target.value)} onKeyDown={e => e.key === 'Enter' && searchShop()} style={{flex: 1}}/>
                 <button className="btn" style={{width: '80px', padding: '0'}} onClick={searchShop} disabled={isSearching}>{isSearching ? '...' : '검색'}</button>
               </div>
               {searchResults.length > 0 && (
@@ -659,13 +654,12 @@ export default function LunchApp() {
               <select value={formData.visitDate} onChange={e => setFormData({...formData, visitDate: e.target.value})} style={modalMode === 'repick' ? { border: '2px solid #3498db' } : {}}>{dateOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select>
             </div>
             
-            <div className="form-group"><label>지도 URL</label><input type="text" placeholder="네이버/카카오 지도 링크를 붙여넣으세요" value={formData.shopUrl} onChange={e => setFormData({...formData, shopUrl: e.target.value})} onBlur={handleUrlBlur} /></div>
-            
             <div className="form-group"><label>가게명</label><input type="text" placeholder="링크를 붙여넣으면 자동 입력됩니다" value={formData.shopName} onChange={e => setFormData({...formData, shopName: e.target.value})} onBlur={e => checkDuplicate('name', e.target.value)} /></div>
             <div className="form-group"><label>카테고리</label><select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>{Object.keys(CATEGORY_EMOJI).map(c => <option key={c} value={c}>{CATEGORY_EMOJI[c]}</option>)}</select></div>
-            <div className="form-group"><label>대표 메뉴</label><input type="text" placeholder="메뉴 1 (필수)" style={{marginBottom:'8px'}} value={formData.menu1} onChange={e => setFormData({...formData, menu1: e.target.value})} /><input type="text" placeholder="메뉴 2 (선택)" style={{marginBottom:'8px'}} value={formData.menu2} onChange={e => setFormData({...formData, menu2: e.target.value})} /><input type="text" placeholder="메뉴 3 (선택)" value={formData.menu3} onChange={e => setFormData({...formData, menu3: e.target.value})} /></div>
-            <div className="form-group"><label>가격대</label><div style={{display:'flex', alignItems:'center', gap:'8px'}}><select value={formData.priceMin} onChange={e => setFormData({...formData, priceMin: e.target.value})}>{priceOptions.map(p => <option key={p} value={p}>{p}</option>)}</select><span style={{fontSize:'13px', fontWeight:'800', color:'var(--text-sub)'}}>부터</span><select value={formData.priceMax} onChange={e => setFormData({...formData, priceMax: e.target.value})}>{priceOptions.map(p => <option key={p} value={p}>{p}</option>)}</select><span style={{fontSize:'13px', fontWeight:'800', color:'var(--text-sub)'}}>까지</span></div></div>
-            <button className="btn" onClick={handleModalSubmit} style={{marginTop:'20px'}}>{modalMode === 'edit' ? '수정 완료' : '추천 완료'}</button><button className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>닫기</button>
+            <div className="form-group"><label>지도 URL (선택사항)</label><input type="text" placeholder="네이버 지도 링크" value={formData.shopUrl} onChange={e => setFormData({...formData, shopUrl: e.target.value})} onBlur={handleUrlBlur} /></div>
+            
+            <button className="btn" onClick={handleModalSubmit} style={{marginTop:'20px'}}>{modalMode === 'edit' ? '수정 완료' : '추천 완료'}</button>
+            <button className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>닫기</button>
           </div>
         </div>
       )}
@@ -686,14 +680,24 @@ export default function LunchApp() {
     const isDisliking = reactionLoading?.id === m.id && reactionLoading?.type === 'toggle_dislike';
     
     return (
-      <div className="menu-card">{type === 'all' && (<div className="card-top-actions"><button className="btn-mini" onClick={() => openEditModal(m, false)}>✏️ 수정</button><button className="btn-mini danger" onClick={() => { setDeleteTargetId(m.id); setIsDeleteModalOpen(true); }} disabled={isDeleteRequested}>{isDeleteRequested ? '요청중' : '🗑️ 삭제'}</button></div>)}{isDeleteRequested && <div className="tag-deleted">🚨 삭제 요청 검토 중: {m.delete_reason || '사유 미상'}</div>}<div className="tag-container"><span className="tag">{CATEGORY_EMOJI[m.category] || m.category}</span><span className="tag tag-date">📅 {dateStr}</span>{type === 'all' && isPicked && <span className="tag tag-status">🎯 Pick 완료</span>}</div><div style={{fontWeight:'800', color:'var(--text-sub)', marginBottom:'5px', fontSize:'12px'}}>🏠 {m.shop_name}</div><h3>{m.menu_details}</h3><div className="menu-details">📍 {m.price}</div><div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+      <div className="menu-card">{type === 'all' && (<div className="card-top-actions"><button className="btn-mini" onClick={() => openEditModal(m, false)}>✏️ 수정</button><button className="btn-mini danger" onClick={() => { setDeleteTargetId(m.id); setIsDeleteModalOpen(true); }} disabled={isDeleteRequested}>{isDeleteRequested ? '요청중' : '🗑️ 삭제'}</button></div>)}{isDeleteRequested && <div className="tag-deleted">🚨 삭제 요청 검토 중: {m.delete_reason || '사유 미상'}</div>}<div className="tag-container"><span className="tag">{CATEGORY_EMOJI[m.category] || m.category}</span><span className="tag tag-date">📅 {dateStr}</span>{type === 'all' && isPicked && <span className="tag tag-status">🎯 Pick 완료</span>}</div>
         
-        <div style={{display:'flex', gap: '6px'}}>
-          <a href={m.shop_url} target="_blank" className="map-link">🗺️ 정보</a>
-          <a href={`https://map.naver.com/v5/directions/KIPFA/${encodeURIComponent(m.shop_name)}/-/walk`} target="_blank" className="map-link" style={{background: '#2ecc7120', color: '#27ae60'}}>🧭 길찾기</a>
+        {/* ✨ 가게명 텍스트 강조 및 메뉴 텍스트 제거 */}
+        <h3 style={{marginTop: '8px'}}>{m.shop_name}</h3>
+        
+        {/* ✨ 리스트 목록에서 가장 돋보이게 만든 '메뉴 및 상세정보 보기' 버튼 영역 */}
+        <div style={{display:'flex', gap: '8px', marginBottom: '15px', marginTop: '15px'}}>
+          <a href={m.shop_url} target="_blank" style={{flex: 1, textAlign: 'center', background: 'var(--bg-main-rgb)', color: 'var(--text-main)', border: '1px solid var(--border)', padding: '10px', borderRadius: '10px', fontWeight: '800', fontSize: '13px', textDecoration: 'none'}}>🍽️ 메뉴/리뷰 보기</a>
+          <a href={`https://map.naver.com/v5/directions/KIPFA/${encodeURIComponent(m.shop_name)}/-/walk`} target="_blank" style={{flex: 1, textAlign: 'center', background: '#2ecc7115', color: '#27ae60', border: '1px solid #2ecc7140', padding: '10px', borderRadius: '10px', fontWeight: '800', fontSize: '13px', textDecoration: 'none'}}>🧭 길찾기</a>
         </div>
         
-        {type === 'pick' ? (<div className="reaction-group"><button className={`like-btn ${likes.includes(session?.pin as string) ? 'liked' : ''}`} onClick={() => toggleReaction(m.id, 'toggle_like')} disabled={isLiking || isDisliking}>{isLiking ? '⏳' : (likes.includes(session?.pin as string) ? '❤️' : '🤍')} {likes.length}</button><button className={`dislike-btn ${dislikes.includes(session?.pin as string) ? 'liked' : ''}`} onClick={() => toggleReaction(m.id, 'toggle_dislike')} disabled={isLiking || isDisliking}>{isDisliking ? '⏳' : (dislikes.includes(session?.pin as string) ? '💔' : '👎')} {dislikes.length}</button></div>) : (<span style={{fontSize:'12px', color:'#e74c3c', fontWeight:'800', background:'#e74c3c20', padding:'6px 12px', borderRadius:'12px'}}>❤️ 좋아요 {likes.length}개</span>)}</div>{type === 'all' && (<div style={{display: 'flex', gap: '10px', marginTop: '15px'}}><button className="btn-outline" style={{flex: 2}} onClick={() => openEditModal(m, true)}>🔄 다시 Pick 하기</button><button className="btn-outline" style={{flex: 1, borderColor: 'var(--border)', color: 'var(--text-sub)'}} onClick={() => copyToClipboard(`[맛집 추천] ${m.shop_name}\n🍽️ 메뉴: ${m.menu_details}\n📍 ${m.shop_url}`)}>📤 공유</button></div>)}</div>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+          <div style={{fontSize: '12px', color: 'var(--text-sub)', fontWeight: '600'}}>📍 {m.address || '주소 정보 없음'}</div>
+          {type === 'pick' ? (<div className="reaction-group"><button className={`like-btn ${likes.includes(session?.pin as string) ? 'liked' : ''}`} onClick={() => toggleReaction(m.id, 'toggle_like')} disabled={isLiking || isDisliking}>{isLiking ? '⏳' : (likes.includes(session?.pin as string) ? '❤️' : '🤍')} {likes.length}</button><button className={`dislike-btn ${dislikes.includes(session?.pin as string) ? 'liked' : ''}`} onClick={() => toggleReaction(m.id, 'toggle_dislike')} disabled={isLiking || isDisliking}>{isDisliking ? '⏳' : (dislikes.includes(session?.pin as string) ? '💔' : '👎')} {dislikes.length}</button></div>) : (<span style={{fontSize:'12px', color:'#e74c3c', fontWeight:'800', background:'#e74c3c20', padding:'6px 12px', borderRadius:'12px'}}>❤️ 좋아요 {likes.length}개</span>)}
+        </div>
+        
+        {type === 'all' && (<div style={{display: 'flex', gap: '10px', marginTop: '15px'}}><button className="btn-outline" style={{flex: 2}} onClick={() => openEditModal(m, true)}>🔄 다시 Pick 하기</button><button className="btn-outline" style={{flex: 1, borderColor: 'var(--border)', color: 'var(--text-sub)'}} onClick={() => copyToClipboard(`[맛집 추천] ${m.shop_name}\n📍 ${m.shop_url}`)}>📤 공유</button></div>)}
+      </div>
     );
   }
 }
