@@ -56,7 +56,8 @@ export default function LunchApp() {
   const [isSearching, setIsSearching] = useState(false);
   
   const [isMapOpen, setIsMapOpen] = useState(false);
-  const [mapTargetShop, setMapTargetShop] = useState<string | null>(null);
+  // ✨ 객체 형태로 변경되어 시간값(t)을 포함합니다.
+  const [mapTargetShop, setMapTargetShop] = useState<{name: string, t: number} | null>(null);
   const [highlightedCardId, setHighlightedCardId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
@@ -405,10 +406,10 @@ export default function LunchApp() {
     }
   };
 
-  // ✨ 카드 누르면 무조건 화면 최상단(top: 0)으로 완벽하게 이동!
+  // ✨ 클릭 시 무조건 시간을 갱신하여 100% 반응하게 만들기!
   const handleShowLocationOnMap = (shopName: string) => {
     setIsMapOpen(true); 
-    setMapTargetShop(shopName); 
+    setMapTargetShop({ name: shopName, t: Date.now() }); 
     setTimeout(() => {
       window.scrollTo({ top: 0, behavior: 'smooth' }); 
     }, 100);
@@ -633,7 +634,7 @@ export default function LunchApp() {
                 <div id="map-area" style={{ marginBottom: '20px' }}>
                   <NaverMap 
                     menus={activeTab === 'pick' ? [...filteredData.tw, ...filteredData.nw] : filteredData.allF} 
-                    targetShopName={mapTargetShop}
+                    targetShop={mapTargetShop}
                     onMarkerClick={handleMapMarkerClick}
                   />
                 </div>
