@@ -367,7 +367,6 @@ export default function LunchApp() {
     }
   };
 
-  // ✨ 상호 배제 처리 (좋아요/싫어요를 동시에 누르지 못하게 연동!)
   const toggleReaction = async (id: string, action: string) => {
     setReactionLoading({ id, type: action });
     try {
@@ -382,21 +381,22 @@ export default function LunchApp() {
       
       if (isLikeAction) {
         if (likesArr.includes(userPin)) {
-          likesArr = likesArr.filter(p => p !== userPin); // 이미 좋아요면 취소
+          likesArr = likesArr.filter(p => p !== userPin);
         } else {
-          likesArr.push(userPin); // 좋아요 추가
-          dislikesArr = dislikesArr.filter(p => p !== userPin); // 혹시 싫어요가 있으면 삭제!
+          likesArr.push(userPin);
+          dislikesArr = dislikesArr.filter(p => p !== userPin);
         }
       } else {
         if (dislikesArr.includes(userPin)) {
-          dislikesArr = dislikesArr.filter(p => p !== userPin); // 이미 싫어요면 취소
+          dislikesArr = dislikesArr.filter(p => p !== userPin);
         } else {
-          dislikesArr.push(userPin); // 싫어요 추가
-          likesArr = likesArr.filter(p => p !== userPin); // 혹시 좋아요가 있으면 삭제!
+          dislikesArr.push(userPin);
+          likesArr = likesArr.filter(p => p !== userPin);
         }
       }
 
       await supabase.from('menus').update({ likes: likesArr.join(','), dislikes: dislikesArr.join(',') }).eq('id', id);
+
       fetchMenus(true);
     } catch (e) {
       showToast("🚨 오류 발생");
@@ -562,19 +562,18 @@ export default function LunchApp() {
         .menu-card.highlight { border-color: #3498db; box-shadow: 0 0 15px rgba(52,152,219,0.3); transform: scale(1.02); }
         .tag { background: #f1f3f5; padding: 4px 10px; border-radius: 6px; font-size: 11px; margin-right: 5px; font-weight: 800; color: #495057; }
         
-        /* ✨ 확 바뀐 직관적인 좋아요/싫어요 색상 및 디자인 (하트) */
+        /* ✨ 좋아요(❤️) / 싫어요(👎 회색배경) 명확한 디자인 분리 */
         .reaction-group { display: flex; gap: 6px; }
         .like-btn { background: white; border: 1.5px solid #ffc9c9; color: #fa5252; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 5px; cursor: pointer; transition: 0.2s; }
         .like-btn.active { background: #fa5252; color: white; border-color: #fa5252; }
         .dislike-btn { background: white; border: 1.5px solid #e1e5e8; color: #7f8c8d; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 5px; cursor: pointer; transition: 0.2s; }
-        .dislike-btn.active { background: #e74c3c; border-color: #e74c3c; color: white; }
+        .dislike-btn.active { background: #868e96; border-color: #868e96; color: white; }
         
         .naver-map-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: #fff; border: 1px solid #eee; padding: 8px 14px; border-radius: 12px; text-decoration: none; color: #333; font-weight: 800; font-size: 13px; }
         
         .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #2c3e50; color: white; padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 14px; z-index: 100000; animation: slideDown 0.3s; box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
         @keyframes slideDown { from { top: -50px; } to { top: 20px; } }
         
-        /* ✨ 하단 안전 영역(Safe Area)을 고려한 플로팅 버튼 배치 */
         .map-floating-toggle { position: fixed; bottom: calc(30px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); background: #2c3e50; color: white; border: none; padding: 14px 28px; border-radius: 30px; font-weight: 900; box-shadow: 0 8px 20px rgba(0,0,0,0.2); z-index: 9999; cursor: pointer; transition: 0.2s; }
         
         .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 10000; }
@@ -770,7 +769,7 @@ export default function LunchApp() {
               <input type="text" placeholder="메뉴 3 (선택)" value={formData.menu3} onChange={e => setFormData({ ...formData, menu3: e.target.value })} />
             </div>
 
-            {/* ✨ 추천 완료를 왼쪽으로, 취소를 오른쪽으로 변경! */}
+            {/* ✨ 취소를 우측으로, 추천 완료를 좌측으로! */}
             <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
               <button onClick={handleModalSubmit} style={{ flex: 2, background: '#3498db', color: 'white', padding: '15px', borderRadius: '12px', border: 'none', fontWeight: 900 }}>
                 {modalMode === 'edit' ? '수정 완료!' : '추천 완료!'}
@@ -834,17 +833,20 @@ export default function LunchApp() {
         
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '15px' }}>
           <a href={m.shop_url} target="_blank" onClick={e => e.stopPropagation()} className="naver-map-btn">
-            <span style={{ background: '#03C75A', color: 'white', padding: '2px 5px', borderRadius: '4px', fontWeight: 900, fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>N</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M16.0718 0H7.92817C3.54921 0 0 3.54921 0 7.92817V16.0718C0 20.4508 3.54921 24 7.92817 24H16.0718C20.4508 24 24 20.4508 24 16.0718V7.92817C24 3.54921 20.4508 0 16.0718 0Z" fill="#03C75A"/>
+              <path d="M16.9242 17.5255H13.6702L9.42152 11.2335V17.5255H6.38818V6.47449H9.64219L13.8909 12.7665V6.47449H16.9242V17.5255Z" fill="white"/>
+            </svg>
             네이버 지도
           </a>
 
-          {/* ✨ 변경된 좋아요/싫어요 (❤️ / 💔) 감정 아이콘 */}
+          {/* ✨ 서로 배타적으로 작동하는 디자인 개선된 감정 아이콘 */}
           <div className="reaction-group">
             <button className={`like-btn ${isLiked ? 'active' : ''}`} onClick={e => { e.stopPropagation(); toggleReaction(m.id, 'toggle_like'); }} disabled={reactionLoading?.id === m.id}>
               {isLiked ? '❤️' : '🤍'} {likes.length}
             </button>
             <button className={`dislike-btn ${isDisliked ? 'active' : ''}`} onClick={e => { e.stopPropagation(); toggleReaction(m.id, 'toggle_dislike'); }} disabled={reactionLoading?.id === m.id}>
-              {isDisliked ? '💔' : '👎'} {dislikes.length}
+              👎 {dislikes.length}
             </button>
           </div>
         </div>
