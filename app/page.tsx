@@ -77,7 +77,7 @@ export default function LunchApp() {
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
 
-  // ✨ 인스타 감성 애니메이션 팝업을 위한 상태 관리!
+  // 인스타 감성 애니메이션 팝업을 위한 상태 관리
   const [floatingEmojis, setFloatingEmojis] = useState<{ id: number, x: number, y: number, emoji: string }[]>([]);
 
   const [formData, setFormData] = useState({
@@ -190,22 +190,39 @@ export default function LunchApp() {
     }
   };
 
+  // ✨ 강력해진 검색 로직 (송파구 우선 필터링)
   const searchShop = async () => {
     if (!keyword.trim()) return;
-    setIsSearching(true);
+    setIsSearching(true); // 로딩 스피너 작동 시작
+    
     let finalKeyword = keyword.trim();
-    if (!finalKeyword.includes('송파') && !finalKeyword.includes('잠실') && !finalKeyword.includes('방이') && !finalKeyword.includes('가락')) {
+    if (!finalKeyword.includes('송파') && !finalKeyword.includes('잠실') && !finalKeyword.includes('방이') && !finalKeyword.includes('가락') && !finalKeyword.includes('문정') && !finalKeyword.includes('신천')) {
       finalKeyword = `송파구 ${finalKeyword}`;
     }
+    
     try {
       const res = await fetch(`/api/search?query=${encodeURIComponent(finalKeyword)}`);
       const data = await res.json();
-      setSearchResults(data.items || []);
-      if (data.items?.length === 0) showToast("검색 결과가 없습니다.");
+      let items = data.items || [];
+      
+      // ✨ 프론트엔드 강제 필터링: 무조건 송파구 주소가 있는 결과를 최우선으로 보여줍니다!
+      const songpaItems = items.filter((item: any) => 
+        (item.address && item.address.includes('송파구')) || 
+        (item.roadAddress && item.roadAddress.includes('송파구'))
+      );
+      
+      // 송파구 결과가 하나라도 있으면 송파구 데이터만 세팅, 아예 없으면 원본 데이터 세팅
+      if (songpaItems.length > 0) {
+        setSearchResults(songpaItems);
+      } else {
+        setSearchResults(items);
+      }
+      
+      if (items.length === 0) showToast("검색 결과가 없습니다.");
     } catch (e) {
       showToast("검색 중 오류가 발생했습니다.");
     } finally {
-      setIsSearching(false);
+      setIsSearching(false); // 로딩 스피너 종료
     }
   };
 
@@ -377,18 +394,15 @@ export default function LunchApp() {
     }
   };
 
-  // ✨ 허공에 이모지를 띄우는 애니메이션 호출 함수
   const triggerFloatingEmoji = (x: number, y: number, emoji: string) => {
     const id = Date.now() + Math.random();
     setFloatingEmojis(prev => [...prev, { id, x, y, emoji }]);
     
-    // 애니메이션이 끝나면 배열에서 삭제 (청소)
     setTimeout(() => {
       setFloatingEmojis(prev => prev.filter(item => item.id !== id));
     }, 1000);
   };
 
-  // ✨ 버튼 클릭 시 애니메이션 트리거 & 서버 통신 
   const handleReactionClick = async (e: React.MouseEvent, id: string, action: string) => {
     e.stopPropagation();
     
@@ -400,12 +414,10 @@ export default function LunchApp() {
       let likesArr = String(targetMenu.likes || '').split(',').filter(Boolean);
       let dislikesArr = String(targetMenu.dislikes || '').split(',').filter(Boolean);
       
-      // 버튼의 절대 좌표값을 계산해서 그 위로 이모지를 띄웁니다!
       const rect = e.currentTarget.getBoundingClientRect();
       const x = rect.left + rect.width / 2;
       const y = rect.top;
 
-      // 내가 안 눌렀던 거면 애니메이션 재생!
       if (isLikeAction && !likesArr.includes(userPin)) {
         triggerFloatingEmoji(x, y, '❤️');
       } else if (!isLikeAction && !dislikesArr.includes(userPin)) {
@@ -413,7 +425,6 @@ export default function LunchApp() {
       }
     }
 
-    // 서버 통신 로직 실행
     toggleReaction(id, action);
   };
 
@@ -531,11 +542,11 @@ export default function LunchApp() {
   };
 
   const handleTouchStart = (e: any) => {
-    if (window.scrollY === 0) touchStartY.current = e.touches[0].clientY;
+    if (window.scrollY <= 10) touchStartY.current = e.touches[0].clientY;
   };
   
   const handleTouchMove = (e: any) => {
-    if (touchStartY.current > 0 && window.scrollY === 0) {
+    if (touchStartY.current > 0 && window.scrollY <= 10) {
       const y = e.touches[0].clientY;
       const diff = y - touchStartY.current;
       if (diff > 0 && diff < 150) setPullDistance(diff * 0.4);
@@ -569,7 +580,6 @@ export default function LunchApp() {
     categoryScrollRef.current.scrollLeft = scrollLeft - walk;
   };
 
-  // 로그인 화면
   if (!session) return (
     <div className="container" style={{ maxWidth: '400px', margin: '100px auto', textAlign: 'center', padding: '20px' }}>
       <h2 style={{ fontWeight: 900, marginBottom: '30px' }}>🏢 KIPFA 점심 추천</h2>
@@ -633,7 +643,6 @@ export default function LunchApp() {
         .menu-card.highlight { border-color: #3498db; box-shadow: 0 0 15px rgba(52,152,219,0.3); transform: scale(1.02); }
         .tag { background: #f1f3f5; padding: 4px 10px; border-radius: 6px; font-size: 11px; margin-right: 5px; font-weight: 800; color: #495057; }
         
-        /* ✨ 버튼 좌우 진동 방지를 위해 고정 너비(min-width)와 숫자 고정폭(tabular-nums) 적용 */
         .reaction-group { display: flex; gap: 6px; }
         .like-btn, .dislike-btn { 
           background: white; border: 1.5px solid #e1e5e8; color: #495057; 
@@ -668,7 +677,9 @@ export default function LunchApp() {
         .ptr-container { position: fixed; top: 0; left: 0; width: 100%; height: 60px; display: flex; justify-content: center; align-items: center; z-index: 9995; pointer-events: none; }
         .ptr-icon { width: 30px; height: 30px; background: white; border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; justify-content: center; align-items: center; font-size: 16px; transition: transform 0.3s; }
 
-        /* ✨ 인스타 감성 플로팅 이모지 애니메이션 CSS */
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .spinner-mini { width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3); border-top: 3px solid white; border-radius: 50%; animation: spin 1s linear infinite; }
+
         .floating-emoji {
           position: fixed;
           font-size: 50px;
@@ -689,7 +700,6 @@ export default function LunchApp() {
 
       {toastMessage && <div className="toast">{toastMessage}</div>}
 
-      {/* ✨ 애니메이션용 플로팅 이모지 컨테이너 */}
       {floatingEmojis.map(item => (
         <div key={item.id} className="floating-emoji" style={{ left: item.x, top: item.y }}>
           {item.emoji}
@@ -851,8 +861,8 @@ export default function LunchApp() {
               <label>🔍 가게 검색</label>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <input type="text" placeholder="예: 돈까스" value={keyword} onChange={e => setKeyword(e.target.value)} onKeyDown={e => e.key === 'Enter' && searchShop()} style={{ flex: 1 }} />
-                <button onClick={searchShop} style={{ background: '#3498db', color: 'white', border: 'none', width: '46px', height: '46px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                   <span style={{ fontSize: '20px' }}>🔍</span>
+                <button onClick={searchShop} disabled={isSearching} style={{ background: '#3498db', color: 'white', border: 'none', width: '46px', height: '46px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                   {isSearching ? <div className="spinner-mini"></div> : <span style={{ fontSize: '20px' }}>🔍</span>}
                 </button>
               </div>
               {searchResults.length > 0 && (
@@ -956,7 +966,6 @@ export default function LunchApp() {
             네이버 지도
           </a>
 
-          {/* ✨ 버튼 좌우 흔들림 방지 및 애니메이션 호출 연결 */}
           <div className="reaction-group">
             <button className={`like-btn ${isLiked ? 'active' : ''}`} onClick={e => handleReactionClick(e, m.id, 'toggle_like')} disabled={reactionLoading?.id === m.id}>
               {isLiked ? '❤️' : '🤍'} {likes.length}
