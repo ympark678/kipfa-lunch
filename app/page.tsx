@@ -66,18 +66,15 @@ export default function LunchApp() {
   const [rouletteResult, setRouletteResult] = useState<any>(null);
   const [isSpinning, setIsSpinning] = useState(false);
 
-  // 당겨서 새로고침 관련 State
   const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const touchStartY = useRef(0);
 
-  // PC 버전 카테고리 마우스 드래그를 위한 Ref 및 State
   const categoryScrollRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
 
-  // 인스타 감성 애니메이션 팝업을 위한 상태 관리
   const [floatingEmojis, setFloatingEmojis] = useState<{ id: number, x: number, y: number, emoji: string }[]>([]);
 
   const [formData, setFormData] = useState({
@@ -190,39 +187,58 @@ export default function LunchApp() {
     }
   };
 
-  // ✨ 강력해진 검색 로직 (송파구 우선 필터링)
+  // ✨ 2단 콤보 스마트 검색 로직 적용
   const searchShop = async () => {
     if (!keyword.trim()) return;
-    setIsSearching(true); // 로딩 스피너 작동 시작
+    setIsSearching(true);
     
     let finalKeyword = keyword.trim();
-    if (!finalKeyword.includes('송파') && !finalKeyword.includes('잠실') && !finalKeyword.includes('방이') && !finalKeyword.includes('가락') && !finalKeyword.includes('문정') && !finalKeyword.includes('신천')) {
+    const hasRegion = /(송파|잠실|방이|가락|문정|신천|석촌|오금|거여|마천|풍납)/.test(finalKeyword);
+    
+    if (!hasRegion) {
       finalKeyword = `송파구 ${finalKeyword}`;
     }
     
     try {
-      const res = await fetch(`/api/search?query=${encodeURIComponent(finalKeyword)}`);
-      const data = await res.json();
-      let items = data.items || [];
+      const fetchResults = async (queryStr: string) => {
+        const res = await fetch(`/api/search?query=${encodeURIComponent(queryStr)}`);
+        const data = await res.json();
+        return data.items || [];
+      };
+
+      let items = await fetchResults(finalKeyword);
       
-      // ✨ 프론트엔드 강제 필터링: 무조건 송파구 주소가 있는 결과를 최우선으로 보여줍니다!
-      const songpaItems = items.filter((item: any) => 
-        (item.address && item.address.includes('송파구')) || 
-        (item.roadAddress && item.roadAddress.includes('송파구'))
+      let songpaItems = items.filter((item: any) => 
+        (item.address && item.address.includes('송파')) || 
+        (item.roadAddress && item.roadAddress.includes('송파'))
       );
+
+      // ✨ 1차 검색에서 송파구 식당이 없으면 '식당' 키워드를 강제로 붙여서 2차 딥서치!
+      if (songpaItems.length === 0) {
+        const retryKeyword = `${finalKeyword} 식당`;
+        const retryItems = await fetchResults(retryKeyword);
+        const retrySongpaItems = retryItems.filter((item: any) => 
+          (item.address && item.address.includes('송파')) || 
+          (item.roadAddress && item.roadAddress.includes('송파'))
+        );
+        
+        if (retrySongpaItems.length > 0) {
+          items = retryItems;
+          songpaItems = retrySongpaItems;
+        }
+      }
       
-      // 송파구 결과가 하나라도 있으면 송파구 데이터만 세팅, 아예 없으면 원본 데이터 세팅
       if (songpaItems.length > 0) {
         setSearchResults(songpaItems);
       } else {
-        setSearchResults(items);
+        setSearchResults(items); // 송파구에 진짜 없으면 원본이라도 띄움
       }
       
-      if (items.length === 0) showToast("검색 결과가 없습니다.");
+      if (items.length === 0 && songpaItems.length === 0) showToast("검색 결과가 없습니다.");
     } catch (e) {
       showToast("검색 중 오류가 발생했습니다.");
     } finally {
-      setIsSearching(false); // 로딩 스피너 종료
+      setIsSearching(false);
     }
   };
 
@@ -677,6 +693,7 @@ export default function LunchApp() {
         .ptr-container { position: fixed; top: 0; left: 0; width: 100%; height: 60px; display: flex; justify-content: center; align-items: center; z-index: 9995; pointer-events: none; }
         .ptr-icon { width: 30px; height: 30px; background: white; border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; justify-content: center; align-items: center; font-size: 16px; transition: transform 0.3s; }
 
+        /* ✨ 스피너 복구! */
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .spinner-mini { width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3); border-top: 3px solid white; border-radius: 50%; animation: spin 1s linear infinite; }
 
@@ -834,6 +851,7 @@ export default function LunchApp() {
       )}
       <button onClick={openAddModal} style={{ position: 'fixed', bottom: 'calc(30px + env(safe-area-inset-bottom))', right: '20px', width: '56px', height: '56px', borderRadius: '50%', background: '#3498db', color: 'white', border: 'none', fontSize: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', zIndex: 9998 }}>＋</button>
 
+      {/* 모달 창들 */}
       {isRouletteOpen && (
         <div className="modal" onClick={() => !isSpinning && setIsRouletteOpen(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ textAlign: 'center' }}>
@@ -861,6 +879,7 @@ export default function LunchApp() {
               <label>🔍 가게 검색</label>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <input type="text" placeholder="예: 돈까스" value={keyword} onChange={e => setKeyword(e.target.value)} onKeyDown={e => e.key === 'Enter' && searchShop()} style={{ flex: 1 }} />
+                {/* ✨ 검색 시 돋보기 대신 스피너 로딩 노출 */}
                 <button onClick={searchShop} disabled={isSearching} style={{ background: '#3498db', color: 'white', border: 'none', width: '46px', height: '46px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                    {isSearching ? <div className="spinner-mini"></div> : <span style={{ fontSize: '20px' }}>🔍</span>}
                 </button>
