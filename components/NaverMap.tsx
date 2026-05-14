@@ -56,7 +56,6 @@ export default function NaverMap({
   const initMap = () => {
     if (!window.naver || !window.naver.maps) return;
 
-    // ✨ 부장님이 주신 정확한 잠실 현대타워 좌표 적용 완료!
     const officeLocation = new window.naver.maps.LatLng(37.515100, 127.102500);
     
     const mapOptions = {
@@ -97,12 +96,13 @@ export default function NaverMap({
       title: menu.shop_name
     });
 
+    // ✨ 투명했던 말풍선 내부를 하얀 배경과 그림자로 채워 가독성 100% 상승!
     const infoWindow = new window.naver.maps.InfoWindow({
       content: `
-        <div style="padding:12px; min-width:140px; font-family: Pretendard; cursor:pointer; text-align:center;" 
+        <div style="padding:14px; min-width:140px; font-family: Pretendard; cursor:pointer; text-align:center; background:white; border-radius:12px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); border: 1px solid #e1e5e8;" 
              onclick="window.dispatchEvent(new CustomEvent('mapClick', {detail:'${menu.id}'}))">
-           <div style="font-weight:900; font-size:15px; color:#333; margin-bottom:4px;">${menu.shop_name}</div>
-           <div style="font-size:12px; color:#3498db; font-weight:800; background:#f0f8ff; padding:4px; border-radius:4px;">⬇️ 터치해서 목록으로 이동</div>
+           <div style="font-weight:900; font-size:15px; color:#333; margin-bottom:6px;">${menu.shop_name}</div>
+           <div style="font-size:12px; color:#3498db; font-weight:800; background:#f0f8ff; padding:6px; border-radius:6px;">⬇️ 터치해서 목록으로 이동</div>
         </div>
       `,
       borderWidth: 0,
