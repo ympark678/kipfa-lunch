@@ -71,11 +71,14 @@ export default function LunchApp() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const touchStartY = useRef(0);
 
-  // ✨ PC 버전 카테고리 마우스 드래그를 위한 Ref 및 State
+  // PC 버전 카테고리 마우스 드래그를 위한 Ref 및 State
   const categoryScrollRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
+
+  // ✨ 인스타 감성 애니메이션 팝업을 위한 상태 관리!
+  const [floatingEmojis, setFloatingEmojis] = useState<{ id: number, x: number, y: number, emoji: string }[]>([]);
 
   const [formData, setFormData] = useState({
     visitDate: "",
@@ -374,6 +377,46 @@ export default function LunchApp() {
     }
   };
 
+  // ✨ 허공에 이모지를 띄우는 애니메이션 호출 함수
+  const triggerFloatingEmoji = (x: number, y: number, emoji: string) => {
+    const id = Date.now() + Math.random();
+    setFloatingEmojis(prev => [...prev, { id, x, y, emoji }]);
+    
+    // 애니메이션이 끝나면 배열에서 삭제 (청소)
+    setTimeout(() => {
+      setFloatingEmojis(prev => prev.filter(item => item.id !== id));
+    }, 1000);
+  };
+
+  // ✨ 버튼 클릭 시 애니메이션 트리거 & 서버 통신 
+  const handleReactionClick = async (e: React.MouseEvent, id: string, action: string) => {
+    e.stopPropagation();
+    
+    const targetMenu = menus.find(m => m.id === id);
+    if (targetMenu) {
+      const userPin = session?.pin as string;
+      const isLikeAction = action === 'toggle_like';
+      
+      let likesArr = String(targetMenu.likes || '').split(',').filter(Boolean);
+      let dislikesArr = String(targetMenu.dislikes || '').split(',').filter(Boolean);
+      
+      // 버튼의 절대 좌표값을 계산해서 그 위로 이모지를 띄웁니다!
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top;
+
+      // 내가 안 눌렀던 거면 애니메이션 재생!
+      if (isLikeAction && !likesArr.includes(userPin)) {
+        triggerFloatingEmoji(x, y, '❤️');
+      } else if (!isLikeAction && !dislikesArr.includes(userPin)) {
+        triggerFloatingEmoji(x, y, '👎');
+      }
+    }
+
+    // 서버 통신 로직 실행
+    toggleReaction(id, action);
+  };
+
   const toggleReaction = async (id: string, action: string) => {
     setReactionLoading({ id, type: action });
     try {
@@ -487,13 +530,12 @@ export default function LunchApp() {
     }, 100);
   };
 
-  // ✨ iOS PWA에서의 당겨서 새로고침 민감도 완화
   const handleTouchStart = (e: any) => {
-    if (window.scrollY <= 10) touchStartY.current = e.touches[0].clientY;
+    if (window.scrollY === 0) touchStartY.current = e.touches[0].clientY;
   };
   
   const handleTouchMove = (e: any) => {
-    if (touchStartY.current > 0 && window.scrollY <= 10) {
+    if (touchStartY.current > 0 && window.scrollY === 0) {
       const y = e.touches[0].clientY;
       const diff = y - touchStartY.current;
       if (diff > 0 && diff < 150) setPullDistance(diff * 0.4);
@@ -510,7 +552,6 @@ export default function LunchApp() {
     touchStartY.current = 0;
   };
 
-  // ✨ PC 가로 스크롤(드래그) 마우스 이벤트
   const onDragStart = (e: React.MouseEvent) => {
     if (!categoryScrollRef.current) return;
     setIsDragging(true);
@@ -524,7 +565,7 @@ export default function LunchApp() {
     if (!isDragging || !categoryScrollRef.current) return;
     e.preventDefault();
     const x = e.pageX - categoryScrollRef.current.offsetLeft;
-    const walk = (x - startX) * 2; // 스크롤 속도
+    const walk = (x - startX) * 2; 
     categoryScrollRef.current.scrollLeft = scrollLeft - walk;
   };
 
@@ -592,10 +633,17 @@ export default function LunchApp() {
         .menu-card.highlight { border-color: #3498db; box-shadow: 0 0 15px rgba(52,152,219,0.3); transform: scale(1.02); }
         .tag { background: #f1f3f5; padding: 4px 10px; border-radius: 6px; font-size: 11px; margin-right: 5px; font-weight: 800; color: #495057; }
         
+        /* ✨ 버튼 좌우 진동 방지를 위해 고정 너비(min-width)와 숫자 고정폭(tabular-nums) 적용 */
         .reaction-group { display: flex; gap: 6px; }
-        .like-btn { background: white; border: 1.5px solid #ffc9c9; color: #fa5252; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 5px; cursor: pointer; transition: 0.2s; }
+        .like-btn, .dislike-btn { 
+          background: white; border: 1.5px solid #e1e5e8; color: #495057; 
+          padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 800; 
+          display: flex; align-items: center; justify-content: center; gap: 5px; 
+          cursor: pointer; transition: 0.2s; 
+          min-width: 72px; box-sizing: border-box; font-variant-numeric: tabular-nums; 
+        }
+        .like-btn { border-color: #ffc9c9; color: #fa5252; }
         .like-btn.active { background: #fa5252; color: white; border-color: #fa5252; }
-        .dislike-btn { background: white; border: 1.5px solid #e1e5e8; color: #7f8c8d; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 5px; cursor: pointer; transition: 0.2s; }
         .dislike-btn.active { background: #868e96; border-color: #868e96; color: white; }
         
         .naver-map-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: #fff; border: 1px solid #eee; padding: 8px 14px; border-radius: 12px; text-decoration: none; color: #333; font-weight: 800; font-size: 13px; }
@@ -619,9 +667,34 @@ export default function LunchApp() {
         
         .ptr-container { position: fixed; top: 0; left: 0; width: 100%; height: 60px; display: flex; justify-content: center; align-items: center; z-index: 9995; pointer-events: none; }
         .ptr-icon { width: 30px; height: 30px; background: white; border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; justify-content: center; align-items: center; font-size: 16px; transition: transform 0.3s; }
+
+        /* ✨ 인스타 감성 플로팅 이모지 애니메이션 CSS */
+        .floating-emoji {
+          position: fixed;
+          font-size: 50px;
+          pointer-events: none;
+          z-index: 100000;
+          transform: translate(-50%, -50%);
+          animation: floatUp 1s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+          text-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        @keyframes floatUp {
+          0% { transform: translate(-50%, -50%) scale(0.2); opacity: 0; }
+          15% { transform: translate(-50%, -70%) scale(1.2); opacity: 1; }
+          30% { transform: translate(-50%, -80%) scale(1); opacity: 1; }
+          80% { transform: translate(-50%, -130%) scale(1); opacity: 1; }
+          100% { transform: translate(-50%, -160%) scale(0.8); opacity: 0; }
+        }
       `}</style>
 
       {toastMessage && <div className="toast">{toastMessage}</div>}
+
+      {/* ✨ 애니메이션용 플로팅 이모지 컨테이너 */}
+      {floatingEmojis.map(item => (
+        <div key={item.id} className="floating-emoji" style={{ left: item.x, top: item.y }}>
+          {item.emoji}
+        </div>
+      ))}
 
       <button 
         className={`map-floating-toggle ${isMapOpen ? 'open' : ''}`}
@@ -654,7 +727,6 @@ export default function LunchApp() {
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <h2 style={{ margin: 0, fontWeight: 900, fontSize: '20px' }}>🏢 KIPFA 점심 추천</h2>
-                {/* ✨ PWA용 직관적인 새로고침 버튼 (항상 노출) */}
                 <button onClick={() => fetchMenus()} style={{ background: '#f1f3f5', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '14px' }}>🔄</button>
               </div>
               <div style={{ fontSize: '12px', fontWeight: 800, color: '#888' }}>
@@ -724,7 +796,6 @@ export default function LunchApp() {
                       <option value="likes">❤️ 인기순</option>
                     </select>
                   </div>
-                  {/* ✨ PC 환경 마우스 드래그 스크롤 추가 완료 */}
                   <div 
                     className="pill-scroll-container" 
                     ref={categoryScrollRef}
@@ -753,7 +824,6 @@ export default function LunchApp() {
       )}
       <button onClick={openAddModal} style={{ position: 'fixed', bottom: 'calc(30px + env(safe-area-inset-bottom))', right: '20px', width: '56px', height: '56px', borderRadius: '50%', background: '#3498db', color: 'white', border: 'none', fontSize: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', zIndex: 9998 }}>＋</button>
 
-      {/* 모달 창들 */}
       {isRouletteOpen && (
         <div className="modal" onClick={() => !isSpinning && setIsRouletteOpen(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ textAlign: 'center' }}>
@@ -886,11 +956,12 @@ export default function LunchApp() {
             네이버 지도
           </a>
 
+          {/* ✨ 버튼 좌우 흔들림 방지 및 애니메이션 호출 연결 */}
           <div className="reaction-group">
-            <button className={`like-btn ${isLiked ? 'active' : ''}`} onClick={e => { e.stopPropagation(); toggleReaction(m.id, 'toggle_like'); }} disabled={reactionLoading?.id === m.id}>
+            <button className={`like-btn ${isLiked ? 'active' : ''}`} onClick={e => handleReactionClick(e, m.id, 'toggle_like')} disabled={reactionLoading?.id === m.id}>
               {isLiked ? '❤️' : '🤍'} {likes.length}
             </button>
-            <button className={`dislike-btn ${isDisliked ? 'active' : ''}`} onClick={e => { e.stopPropagation(); toggleReaction(m.id, 'toggle_dislike'); }} disabled={reactionLoading?.id === m.id}>
+            <button className={`dislike-btn ${isDisliked ? 'active' : ''}`} onClick={e => handleReactionClick(e, m.id, 'toggle_dislike')} disabled={reactionLoading?.id === m.id}>
               👎 {dislikes.length}
             </button>
           </div>
