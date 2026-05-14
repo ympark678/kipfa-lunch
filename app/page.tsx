@@ -535,22 +535,29 @@ export default function LunchApp() {
       <style>{`
         @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
         :root {
-          --bg-main-rgb: 247, 249, 250;
+          /* ✨ 배경을 연속적인 하나의 회색 캔버스로 통일하여 '섬' 현상 제거 */
+          --bg-main-rgb: 248, 249, 250; /* #f8f9fa */
           --text-main: #2c3e50;
           --text-sub: #7f8c8d;
           --card-bg: #ffffff;
           --border: #e1e5e8;
         }
-        body { font-family: 'Pretendard', sans-serif; background: #f8f9fa; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Pretendard', sans-serif; background: rgb(var(--bg-main-rgb)); margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
         .container { max-width: 500px; margin: 0 auto; padding: 20px 20px 100px; }
         
-        .sticky-top-area { position: sticky; top: 0; z-index: 9999; background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); padding: 20px 20px 10px; margin: 0 -20px 15px; border-bottom: 1px solid #eee; transition: all 0.3s ease; }
-        .tabs { display: flex; gap: 8px; margin-bottom: 15px; }
-        .tab { flex: 1; padding: 12px; text-align: center; background: #fff; border-radius: 10px; cursor: pointer; font-weight: 800; font-size: 14px; color: #888; border: 1px solid #eee; }
-        .tab.active { background: #3498db; color: white; border-color: #3498db; }
+        /* ✨ 상단 헤더의 흰색 배경을 걷어내고 바닥색과 동일한 반투명 유리 효과 적용 */
+        .sticky-top-area { position: sticky; top: 0; z-index: 9999; background: rgba(var(--bg-main-rgb), 0.95); backdrop-filter: blur(10px); padding: 20px 20px 5px; margin: 0 -20px 10px; transition: all 0.3s ease; border-bottom: 1px solid rgba(0,0,0,0.03); }
         
-        .section-title { position: sticky; z-index: 9998; font-size: 16px; color: var(--text-main); border-bottom: 2px solid #3498db; padding: 15px 20px 10px 20px; margin: 0 -20px 15px -20px; font-weight: 800; letter-spacing: -0.5px; background: rgba(255,255,255,0.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
-        .filter-section { position: sticky; z-index: 9998; padding: 10px 20px; margin: 0 -20px 15px -20px; display: flex; flex-direction: column; gap: 12px; background: rgba(255,255,255,0.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        /* ✨ 탭을 애플 iOS 설정창 스타일의 세그먼트 컨트롤로 진화 */
+        .tabs { display: flex; background: #e9ecef; border-radius: 12px; padding: 4px; margin-bottom: 10px; }
+        .tab { flex: 1; padding: 10px; text-align: center; border-radius: 10px; cursor: pointer; font-weight: 800; font-size: 14px; color: #868e96; transition: 0.2s; }
+        .tab.active { background: #ffffff; color: #3498db; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        
+        /* ✨ 제목 뒤에 있던 하얀 박스를 지우고, 세련된 가로선으로 장식 */
+        .section-title { position: sticky; z-index: 9998; font-size: 16px; color: var(--text-main); padding: 15px 20px 10px 20px; margin: 0 -20px 15px -20px; font-weight: 800; letter-spacing: -0.5px; background: rgba(var(--bg-main-rgb), 0.95); backdrop-filter: blur(12px); display: flex; align-items: center; }
+        .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); margin-left: 12px; }
+        
+        .filter-section { position: sticky; z-index: 9998; padding: 10px 20px; margin: 0 -20px 15px -20px; display: flex; flex-direction: column; gap: 12px; background: rgba(var(--bg-main-rgb), 0.95); backdrop-filter: blur(12px); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .filter-section.hidden { transform: translateY(-150%); pointer-events: none; }
         
         .pill-scroll-container { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; width: 100%; }
@@ -562,12 +569,11 @@ export default function LunchApp() {
         .menu-card.highlight { border-color: #3498db; box-shadow: 0 0 15px rgba(52,152,219,0.3); transform: scale(1.02); }
         .tag { background: #f1f3f5; padding: 4px 10px; border-radius: 6px; font-size: 11px; margin-right: 5px; font-weight: 800; color: #495057; }
         
-        /* ✨ 좋아요(❤️) / 싫어요(👎 회색배경) 명확한 디자인 분리 */
         .reaction-group { display: flex; gap: 6px; }
-        .like-btn { background: white; border: 1.5px solid #ffc9c9; color: #fa5252; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 5px; cursor: pointer; transition: 0.2s; }
-        .like-btn.active { background: #fa5252; color: white; border-color: #fa5252; }
-        .dislike-btn { background: white; border: 1.5px solid #e1e5e8; color: #7f8c8d; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 5px; cursor: pointer; transition: 0.2s; }
-        .dislike-btn.active { background: #868e96; border-color: #868e96; color: white; }
+        .like-btn { background: white; border: 1px solid #e1e5e8; color: #495057; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 5px; cursor: pointer; transition: 0.2s; }
+        .like-btn.active { background: #fff0f0; color: #fa5252; border-color: #ffc9c9; }
+        .dislike-btn { background: white; border: 1px solid #e1e5e8; color: #495057; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 5px; cursor: pointer; transition: 0.2s; }
+        .dislike-btn.active { background: #f1f3f5; border-color: #ced4da; color: #495057; }
         
         .naver-map-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: #fff; border: 1px solid #eee; padding: 8px 14px; border-radius: 12px; text-decoration: none; color: #333; font-weight: 800; font-size: 13px; }
         
@@ -626,9 +632,10 @@ export default function LunchApp() {
               <h2 style={{ margin: 0, fontWeight: 900, fontSize: '20px' }}>🏢 KIPFA 점심 추천</h2>
               <div style={{ fontSize: '12px', fontWeight: 800, color: '#888' }}>
                 {session.name}님 👋 
-                <button onClick={handleLogout} style={{ border: 'none', background: '#eee', padding: '4px 8px', borderRadius: '10px', marginLeft: '5px', fontWeight: 800 }}>로그아웃</button>
+                <button onClick={handleLogout} style={{ border: 'none', background: '#e9ecef', padding: '4px 8px', borderRadius: '10px', marginLeft: '5px', fontWeight: 800, color: '#495057' }}>로그아웃</button>
               </div>
             </div>
+            {/* ✨ 애플 감성의 깔끔한 세그먼트 탭으로 변경 */}
             <div className="tabs">
               <div className={`tab ${activeTab === 'pick' ? 'active' : ''}`} onClick={() => setActiveTab('pick')}>📅 이번/다음주 Pick</div>
               <div className={`tab ${activeTab === 'all' ? 'active' : ''}`} onClick={() => setActiveTab('all')}>📂 전체 맛집</div>
@@ -656,15 +663,20 @@ export default function LunchApp() {
             {activeTab === 'pick' && (
               <>
                 <h3 className="section-title" style={{ top: stickyTop }}>🎯 이번주 수/금 회식 후보</h3>
+                {/* ✨ 거대한 흰 박스 대신 작고 귀여운 점선 박스로 대체된 빈 화면 */}
                 {filteredData.tw.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '40px 20px', background: 'white', borderRadius: '20px' }}>후보가 없습니다.</div>
+                  <div style={{ textAlign: 'center', padding: '30px 20px', border: '2px dashed #dce0e5', borderRadius: '16px', color: '#adb5bd', fontWeight: 700, margin: '10px 0 20px 0' }}>
+                    아직 등록된 후보가 없어요 🥲
+                  </div>
                 ) : (
                   filteredData.tw.map(m => <Card key={m.id} menu={m} type="pick" />)
                 )}
 
                 <h3 className="section-title" style={{ top: stickyTop }}>🗓️ 다음주 수/금 회식 후보</h3>
                 {filteredData.nw.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '40px 20px', background: 'white', borderRadius: '20px' }}>후보가 없습니다.</div>
+                  <div style={{ textAlign: 'center', padding: '30px 20px', border: '2px dashed #dce0e5', borderRadius: '16px', color: '#adb5bd', fontWeight: 700, margin: '10px 0 20px 0' }}>
+                    아직 등록된 후보가 없어요 🥲
+                  </div>
                 ) : (
                   filteredData.nw.map(m => <Card key={m.id} menu={m} type="pick" />)
                 )}
@@ -769,7 +781,6 @@ export default function LunchApp() {
               <input type="text" placeholder="메뉴 3 (선택)" value={formData.menu3} onChange={e => setFormData({ ...formData, menu3: e.target.value })} />
             </div>
 
-            {/* ✨ 취소를 우측으로, 추천 완료를 좌측으로! */}
             <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
               <button onClick={handleModalSubmit} style={{ flex: 2, background: '#3498db', color: 'white', padding: '15px', borderRadius: '12px', border: 'none', fontWeight: 900 }}>
                 {modalMode === 'edit' ? '수정 완료!' : '추천 완료!'}
@@ -840,13 +851,12 @@ export default function LunchApp() {
             네이버 지도
           </a>
 
-          {/* ✨ 서로 배타적으로 작동하는 디자인 개선된 감정 아이콘 */}
           <div className="reaction-group">
             <button className={`like-btn ${isLiked ? 'active' : ''}`} onClick={e => { e.stopPropagation(); toggleReaction(m.id, 'toggle_like'); }} disabled={reactionLoading?.id === m.id}>
               {isLiked ? '❤️' : '🤍'} {likes.length}
             </button>
             <button className={`dislike-btn ${isDisliked ? 'active' : ''}`} onClick={e => { e.stopPropagation(); toggleReaction(m.id, 'toggle_dislike'); }} disabled={reactionLoading?.id === m.id}>
-              👎 {dislikes.length}
+              {isDisliked ? '💔' : '👎'} {dislikes.length}
             </button>
           </div>
         </div>
