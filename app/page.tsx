@@ -66,9 +66,16 @@ export default function LunchApp() {
   const [rouletteResult, setRouletteResult] = useState<any>(null);
   const [isSpinning, setIsSpinning] = useState(false);
 
+  // 당겨서 새로고침 관련 State
   const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const touchStartY = useRef(0);
+
+  // ✨ PC 버전 카테고리 마우스 드래그를 위한 Ref 및 State
+  const categoryScrollRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
 
   const [formData, setFormData] = useState({
     visitDate: "",
@@ -480,12 +487,13 @@ export default function LunchApp() {
     }, 100);
   };
 
+  // ✨ iOS PWA에서의 당겨서 새로고침 민감도 완화
   const handleTouchStart = (e: any) => {
-    if (window.scrollY === 0) touchStartY.current = e.touches[0].clientY;
+    if (window.scrollY <= 10) touchStartY.current = e.touches[0].clientY;
   };
   
   const handleTouchMove = (e: any) => {
-    if (touchStartY.current > 0 && window.scrollY === 0) {
+    if (touchStartY.current > 0 && window.scrollY <= 10) {
       const y = e.touches[0].clientY;
       const diff = y - touchStartY.current;
       if (diff > 0 && diff < 150) setPullDistance(diff * 0.4);
@@ -500,6 +508,24 @@ export default function LunchApp() {
       setPullDistance(0);
     }
     touchStartY.current = 0;
+  };
+
+  // ✨ PC 가로 스크롤(드래그) 마우스 이벤트
+  const onDragStart = (e: React.MouseEvent) => {
+    if (!categoryScrollRef.current) return;
+    setIsDragging(true);
+    setStartX(e.pageX - categoryScrollRef.current.offsetLeft);
+    setScrollLeft(categoryScrollRef.current.scrollLeft);
+  };
+  
+  const onDragEnd = () => setIsDragging(false);
+  
+  const onDragMove = (e: React.MouseEvent) => {
+    if (!isDragging || !categoryScrollRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - categoryScrollRef.current.offsetLeft;
+    const walk = (x - startX) * 2; // 스크롤 속도
+    categoryScrollRef.current.scrollLeft = scrollLeft - walk;
   };
 
   // 로그인 화면
@@ -535,8 +561,7 @@ export default function LunchApp() {
       <style>{`
         @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
         :root {
-          /* ✨ 배경을 연속적인 하나의 회색 캔버스로 통일하여 '섬' 현상 제거 */
-          --bg-main-rgb: 248, 249, 250; /* #f8f9fa */
+          --bg-main-rgb: 248, 249, 250;
           --text-main: #2c3e50;
           --text-sub: #7f8c8d;
           --card-bg: #ffffff;
@@ -545,22 +570,20 @@ export default function LunchApp() {
         body { font-family: 'Pretendard', sans-serif; background: rgb(var(--bg-main-rgb)); margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
         .container { max-width: 500px; margin: 0 auto; padding: 20px 20px 100px; }
         
-        /* ✨ 상단 헤더의 흰색 배경을 걷어내고 바닥색과 동일한 반투명 유리 효과 적용 */
         .sticky-top-area { position: sticky; top: 0; z-index: 9999; background: rgba(var(--bg-main-rgb), 0.95); backdrop-filter: blur(10px); padding: 20px 20px 5px; margin: 0 -20px 10px; transition: all 0.3s ease; border-bottom: 1px solid rgba(0,0,0,0.03); }
         
-        /* ✨ 탭을 애플 iOS 설정창 스타일의 세그먼트 컨트롤로 진화 */
         .tabs { display: flex; background: #e9ecef; border-radius: 12px; padding: 4px; margin-bottom: 10px; }
         .tab { flex: 1; padding: 10px; text-align: center; border-radius: 10px; cursor: pointer; font-weight: 800; font-size: 14px; color: #868e96; transition: 0.2s; }
         .tab.active { background: #ffffff; color: #3498db; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
         
-        /* ✨ 제목 뒤에 있던 하얀 박스를 지우고, 세련된 가로선으로 장식 */
         .section-title { position: sticky; z-index: 9998; font-size: 16px; color: var(--text-main); padding: 15px 20px 10px 20px; margin: 0 -20px 15px -20px; font-weight: 800; letter-spacing: -0.5px; background: rgba(var(--bg-main-rgb), 0.95); backdrop-filter: blur(12px); display: flex; align-items: center; }
         .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); margin-left: 12px; }
         
         .filter-section { position: sticky; z-index: 9998; padding: 10px 20px; margin: 0 -20px 15px -20px; display: flex; flex-direction: column; gap: 12px; background: rgba(var(--bg-main-rgb), 0.95); backdrop-filter: blur(12px); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .filter-section.hidden { transform: translateY(-150%); pointer-events: none; }
         
-        .pill-scroll-container { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; width: 100%; }
+        .pill-scroll-container { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; width: 100%; cursor: grab; }
+        .pill-scroll-container:active { cursor: grabbing; }
         .pill-scroll-container::-webkit-scrollbar { display: none; }
         .pill-btn { flex-shrink: 0; padding: 8px 16px; border-radius: 30px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-sub); font-weight: 700; font-size: 14px; white-space: nowrap; cursor: pointer; transition: 0.2s; }
         .pill-btn.active { background: #3498db; color: white; border-color: #3498db; }
@@ -570,10 +593,10 @@ export default function LunchApp() {
         .tag { background: #f1f3f5; padding: 4px 10px; border-radius: 6px; font-size: 11px; margin-right: 5px; font-weight: 800; color: #495057; }
         
         .reaction-group { display: flex; gap: 6px; }
-        .like-btn { background: white; border: 1px solid #e1e5e8; color: #495057; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 5px; cursor: pointer; transition: 0.2s; }
-        .like-btn.active { background: #fff0f0; color: #fa5252; border-color: #ffc9c9; }
-        .dislike-btn { background: white; border: 1px solid #e1e5e8; color: #495057; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 5px; cursor: pointer; transition: 0.2s; }
-        .dislike-btn.active { background: #f1f3f5; border-color: #ced4da; color: #495057; }
+        .like-btn { background: white; border: 1.5px solid #ffc9c9; color: #fa5252; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 5px; cursor: pointer; transition: 0.2s; }
+        .like-btn.active { background: #fa5252; color: white; border-color: #fa5252; }
+        .dislike-btn { background: white; border: 1.5px solid #e1e5e8; color: #7f8c8d; padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 5px; cursor: pointer; transition: 0.2s; }
+        .dislike-btn.active { background: #868e96; border-color: #868e96; color: white; }
         
         .naver-map-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: #fff; border: 1px solid #eee; padding: 8px 14px; border-radius: 12px; text-decoration: none; color: #333; font-weight: 800; font-size: 13px; }
         
@@ -629,13 +652,16 @@ export default function LunchApp() {
         <div className="container">
           <div ref={headerRef} className="sticky-top-area">
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', alignItems: 'center' }}>
-              <h2 style={{ margin: 0, fontWeight: 900, fontSize: '20px' }}>🏢 KIPFA 점심 추천</h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h2 style={{ margin: 0, fontWeight: 900, fontSize: '20px' }}>🏢 KIPFA 점심 추천</h2>
+                {/* ✨ PWA용 직관적인 새로고침 버튼 (항상 노출) */}
+                <button onClick={() => fetchMenus()} style={{ background: '#f1f3f5', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '14px' }}>🔄</button>
+              </div>
               <div style={{ fontSize: '12px', fontWeight: 800, color: '#888' }}>
                 {session.name}님 👋 
                 <button onClick={handleLogout} style={{ border: 'none', background: '#e9ecef', padding: '4px 8px', borderRadius: '10px', marginLeft: '5px', fontWeight: 800, color: '#495057' }}>로그아웃</button>
               </div>
             </div>
-            {/* ✨ 애플 감성의 깔끔한 세그먼트 탭으로 변경 */}
             <div className="tabs">
               <div className={`tab ${activeTab === 'pick' ? 'active' : ''}`} onClick={() => setActiveTab('pick')}>📅 이번/다음주 Pick</div>
               <div className={`tab ${activeTab === 'all' ? 'active' : ''}`} onClick={() => setActiveTab('all')}>📂 전체 맛집</div>
@@ -663,7 +689,6 @@ export default function LunchApp() {
             {activeTab === 'pick' && (
               <>
                 <h3 className="section-title" style={{ top: stickyTop }}>🎯 이번주 수/금 회식 후보</h3>
-                {/* ✨ 거대한 흰 박스 대신 작고 귀여운 점선 박스로 대체된 빈 화면 */}
                 {filteredData.tw.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '30px 20px', border: '2px dashed #dce0e5', borderRadius: '16px', color: '#adb5bd', fontWeight: 700, margin: '10px 0 20px 0' }}>
                     아직 등록된 후보가 없어요 🥲
@@ -699,7 +724,17 @@ export default function LunchApp() {
                       <option value="likes">❤️ 인기순</option>
                     </select>
                   </div>
-                  <div className="pill-scroll-container" onTouchStart={e => e.stopPropagation()} onTouchMove={e => e.stopPropagation()}>
+                  {/* ✨ PC 환경 마우스 드래그 스크롤 추가 완료 */}
+                  <div 
+                    className="pill-scroll-container" 
+                    ref={categoryScrollRef}
+                    onMouseDown={onDragStart}
+                    onMouseLeave={onDragEnd}
+                    onMouseUp={onDragEnd}
+                    onMouseMove={onDragMove}
+                    onTouchStart={e => e.stopPropagation()} 
+                    onTouchMove={e => e.stopPropagation()}
+                  >
                     <button className={`pill-btn ${categoryFilter === 'all' ? 'active' : ''}`} onClick={() => setCategoryFilter('all')}>🏷️ 전체</button>
                     {Object.keys(CATEGORY_EMOJI).map(c => (
                       <button key={c} className={`pill-btn ${categoryFilter === c ? 'active' : ''}`} onClick={() => setCategoryFilter(c)}>{CATEGORY_EMOJI[c]}</button>
@@ -856,7 +891,7 @@ export default function LunchApp() {
               {isLiked ? '❤️' : '🤍'} {likes.length}
             </button>
             <button className={`dislike-btn ${isDisliked ? 'active' : ''}`} onClick={e => { e.stopPropagation(); toggleReaction(m.id, 'toggle_dislike'); }} disabled={reactionLoading?.id === m.id}>
-              {isDisliked ? '💔' : '👎'} {dislikes.length}
+              👎 {dislikes.length}
             </button>
           </div>
         </div>
