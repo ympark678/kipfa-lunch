@@ -43,6 +43,8 @@ export default function LunchApp() {
 
   const headerRef = useRef<HTMLDivElement>(null);
   const [stickyTop, setStickyTop] = useState(135);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [isScrollDown, setIsScrollDown] = useState(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"add" | "edit" | "repick">("add");
@@ -952,7 +954,6 @@ export default function LunchApp() {
         className={`menu-card ${highlightedCardId === m.id ? 'highlight' : ''}`} 
         onClick={() => handleShowLocationOnMap(m.shop_name)}
       >
-        {/* ✨ type === 'all' 조건을 아예 없애서 모든 탭에서 수정/삭제 버튼이 보이도록 변경! */}
         <div style={{ position: 'absolute', top: '15px', right: '15px', display: 'flex', gap: '5px' }}>
           <button onClick={(e) => { e.stopPropagation(); openEditModal(m, false); }} style={{ background: '#f8f9fa', border: '1px solid #ddd', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>수정</button>
           <button onClick={(e) => { e.stopPropagation(); setDeleteTargetId(m.id); setIsDeleteModalOpen(true); }} style={{ background: '#fff5f5', color: '#e74c3c', border: '1px solid #ffc9c9', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>삭제</button>
@@ -975,6 +976,7 @@ export default function LunchApp() {
             네이버 지도
           </a>
 
+          {/* ✨ 전체 맛집 탭에서는 테두리 없는 텍스트 지표로 표시 */}
           {type === 'pick' ? (
             <div className="reaction-group">
               <button className={`like-btn ${isLiked ? 'active' : ''}`} onClick={e => handleReactionClick(e, m.id, 'toggle_like')} disabled={reactionLoading?.id === m.id}>
@@ -985,11 +987,11 @@ export default function LunchApp() {
               </button>
             </div>
           ) : (
-            <div className="reaction-group">
-              <div className={`like-btn ${isLiked ? 'active' : ''}`} style={{ cursor: 'default' }}>
+            <div style={{ display: 'flex', gap: '14px', alignItems: 'center', paddingRight: '4px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '14px', fontWeight: 800, color: '#495057' }}>
                 {isLiked ? '❤️' : '🤍'} {likes.length}
               </div>
-              <div className={`dislike-btn ${isDisliked ? 'active' : ''}`} style={{ cursor: 'default' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '14px', fontWeight: 800, color: '#495057' }}>
                 👎 {dislikes.length}
               </div>
             </div>
