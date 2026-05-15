@@ -92,14 +92,12 @@ export default function LunchApp() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // ✨ 날짜 지정에서 '주간(Weekly)' 지정 방식으로 영리하게 변경!
   const dateOptions = useMemo(() => {
     let today = new Date();
     today.setHours(0, 0, 0, 0);
     let day = today.getDay();
     let diffToMonday = today.getDate() - day + (day === 0 ? -6 : 1);
     
-    // DB 에러를 막기 위해 내부적으로는 수요일 날짜를 해당 주의 '대표 날짜'로 씁니다.
     let thisWeekRepDate = new Date(today);
     thisWeekRepDate.setDate(diffToMonday + 2); 
     
@@ -262,6 +260,7 @@ export default function LunchApp() {
     setPin("");
   };
 
+  // ✨ 중복 체크 시 'edit'이 아닌 'repick(복사 후 새로 추가)' 모드로 변경!
   const checkDuplicate = (type: 'name' | 'url', value: string) => {
     if (modalMode === 'edit' || modalMode === 'repick') return;
     if (value.trim().length < 2) return;
@@ -271,9 +270,13 @@ export default function LunchApp() {
       return target.includes(search) || search.includes(target);
     });
     if (found && confirm(`이미 등록된 맛집인 것 같아요. [${found.shop_name}]\n정보를 불러올까요?`)) {
+      // 🚨 센스 포인트: 기존에 사용자가 골라둔 '날짜'는 덮어쓰지 않고 살려둡니다!
+      const currentSelectedDate = formData.visitDate; 
       fillFormWithData(found);
-      setModalMode('edit');
-      setEditTargetId(found.id);
+      setFormData(prev => ({ ...prev, visitDate: currentSelectedDate }));
+      
+      setModalMode('repick'); // 수정이 아닌 '복사 후 새로 등록' 모드로 진입!
+      setEditTargetId(null);
     }
   };
 
@@ -359,7 +362,7 @@ export default function LunchApp() {
       if (modalMode === "edit" && editTargetId) {
         await supabase.from('menus').update(payload).eq('id', editTargetId);
       } else {
-        await supabase.from('menus').insert([payload]);
+        await supabase.from('menus').insert([payload]); // add 또는 repick인 경우 새롭게 추가!
       }
       
       showToast(modalMode === "edit" ? "✨ 수정 완료!" : "✨ 추천 완료!");
@@ -928,7 +931,6 @@ export default function LunchApp() {
     const isLiked = likes.includes(session?.pin || "");
     const isDisliked = dislikes.includes(session?.pin || "");
 
-    // 전체 맛집 탭 전용 날짜 라벨 처리 (이번주/다음주 후보만 노출)
     let dateTag = null;
     if (type === 'all') {
       const d = new Date(`${String(m.visit_date).replace(/\./g, '-')}T00:00:00`);
@@ -958,6 +960,7 @@ export default function LunchApp() {
 
         <div style={{ marginBottom: '10px' }}>
           <span className="tag">{CATEGORY_EMOJI[m.category] || m.category}</span>
+          {/* ✨ 전체 맛집 탭에서만 조건부로 이번주/다음주 라벨이 노출되도록 처리 */}
           {dateTag}
         </div>
         
@@ -973,7 +976,6 @@ export default function LunchApp() {
             네이버 지도
           </a>
 
-          {/* ✨ 전체 맛집 탭에서는 버튼 모양(테두리/배경)을 완전히 제거하고 텍스트만 표시! */}
           {type === 'pick' ? (
             <div className="reaction-group">
               <button className={`like-btn ${isLiked ? 'active' : ''}`} onClick={e => handleReactionClick(e, m.id, 'toggle_like')} disabled={reactionLoading?.id === m.id}>
