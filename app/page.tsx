@@ -497,16 +497,19 @@ export default function LunchApp() {
       else if (d >= nextS && d < nextN) nw.push(m);
     });
 
-    // ✨ 전체 맛집 탭 (allF) 데이터를 모을 때 모든 과거/현재 행의 좋아요를 합산(SUM)합니다!
+    // ✨ 전체 맛집 탭 (allF) 데이터를 모을 때 모든 과거/현재 행의 방문 날짜(visit_date)를 배열로 저장합니다!
     const uniqueMap = new Map();
     menus.forEach(m => {
       const key = String(m.shop_name).replace(/\s/g, "");
       
       if (!uniqueMap.has(key)) {
-        // 처음 등장한(가장 최신) 식당 정보는 기본으로 세팅합니다.
-        uniqueMap.set(key, { ...m, likes: m.likes || '', dislikes: m.dislikes || '' });
+        uniqueMap.set(key, { 
+          ...m, 
+          likes: m.likes || '', 
+          dislikes: m.dislikes || '', 
+          all_dates: m.visit_date ? [m.visit_date] : [] // 모든 날짜 수집용 배열 추가
+        });
       } else {
-        // 이미 저장된 식당 이름이라면, 과거 데이터의 좋아요/싫어요 목록을 콤마(,)로 이어붙여서 누적시킵니다!
         const existing = uniqueMap.get(key);
         
         const existingLikes = existing.likes ? existing.likes.split(',').filter(Boolean) : [];
@@ -516,6 +519,11 @@ export default function LunchApp() {
         const existingDislikes = existing.dislikes ? existing.dislikes.split(',').filter(Boolean) : [];
         const currentDislikes = m.dislikes ? m.dislikes.split(',').filter(Boolean) : [];
         existing.dislikes = [...existingDislikes, ...currentDislikes].join(',');
+
+        // 날짜 배열에 누락된 날짜가 있다면 추가
+        if (m.visit_date && !existing.all_dates.includes(m.visit_date)) {
+          existing.all_dates.push(m.visit_date);
+        }
       }
     });
     
@@ -652,7 +660,7 @@ export default function LunchApp() {
         
         .menu-card { background: white; padding: 20px; border-radius: 18px; border: 1px solid #eee; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); transition: 0.2s; position: relative; cursor: pointer; }
         .menu-card.highlight { border-color: #3498db; box-shadow: 0 0 15px rgba(52,152,219,0.3); transform: scale(1.02); }
-        .tag { background: #f1f3f5; padding: 4px 10px; border-radius: 6px; font-size: 11px; margin-right: 5px; font-weight: 800; color: #495057; }
+        .tag { background: #f1f3f5; padding: 4px 10px; border-radius: 6px; font-size: 11px; margin-right: 5px; font-weight: 800; color: #495057; display: inline-block; margin-bottom: 4px; }
         
         .reaction-group { display: flex; gap: 6px; }
         .like-btn, .dislike-btn { 
@@ -669,7 +677,7 @@ export default function LunchApp() {
         .naver-map-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: #fff; border: 1px solid #eee; padding: 8px 14px; border-radius: 12px; text-decoration: none; color: #333; font-weight: 800; font-size: 13px; }
         
         .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #2c3e50; color: white; padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 14px; z-index: 100000; animation: slideDown 0.3s; box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
-        @keyframes slideDown { from { top: -50px; } to { top: 20px; } }
+        @keyframes slideDown { from { from { top: -50px; } to { top: 20px; } }
         
         .map-floating-toggle { position: fixed; bottom: calc(30px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); background: #2c3e50; color: white; border: none; padding: 14px 28px; border-radius: 30px; font-weight: 900; box-shadow: 0 8px 20px rgba(0,0,0,0.2); z-index: 9999; cursor: pointer; transition: 0.2s; }
         
@@ -948,20 +956,30 @@ export default function LunchApp() {
     const isLiked = likes.includes(session?.pin || "");
     const isDisliked = dislikes.includes(session?.pin || "");
 
-    let dateTag = null;
+    // ✨ 전체 맛집 탭에서 여러 날짜(이번주, 다음주)가 겹쳐있을 경우를 위한 배열 렌더링 로직
+    let dateTags: React.ReactNode[] = [];
     if (type === 'all') {
-      const d = new Date(`${String(m.visit_date).replace(/\./g, '-')}T00:00:00`);
       const today = new Date(); today.setHours(0,0,0,0);
       const day = today.getDay(); const diff = today.getDate() - day + (day === 0 ? -6 : 1);
       const thisS = new Date(today); thisS.setDate(diff);
       const nextS = new Date(thisS); nextS.setDate(thisS.getDate() + 7);
       const nextN = new Date(nextS); nextN.setDate(nextS.getDate() + 7);
 
-      if (d >= thisS && d < nextS) {
-        dateTag = <span className="tag" style={{ background: '#e3f2fd', color: '#228be6' }}>🎯 이번주 Pick 후보</span>;
-      } else if (d >= nextS && d < nextN) {
-        dateTag = <span className="tag" style={{ background: '#e3f2fd', color: '#228be6' }}>🗓️ 다음주 Pick 후보</span>;
-      }
+      let isThisWeek = false;
+      let isNextWeek = false;
+
+      // m.all_dates 배열 안의 모든 날짜를 하나씩 검사합니다.
+      const datesToCheck = m.all_dates || (m.visit_date ? [m.visit_date] : []);
+
+      datesToCheck.forEach((vd: any) => {
+        const d = new Date(`${String(vd).replace(/\./g, '-')}T00:00:00`);
+        if (d >= thisS && d < nextS) isThisWeek = true;
+        if (d >= nextS && d < nextN) isNextWeek = true;
+      });
+
+      // 만약 둘 다 있다면 두 개의 뱃지를 모두 배열에 담습니다.
+      if (isThisWeek) dateTags.push(<span key="tw" className="tag" style={{ background: '#e3f2fd', color: '#228be6' }}>🎯 이번주 Pick 후보</span>);
+      if (isNextWeek) dateTags.push(<span key="nw" className="tag" style={{ background: '#e3f2fd', color: '#228be6' }}>🗓️ 다음주 Pick 후보</span>);
     }
 
     return (
@@ -977,7 +995,8 @@ export default function LunchApp() {
 
         <div style={{ marginBottom: '10px' }}>
           <span className="tag">{CATEGORY_EMOJI[m.category] || m.category}</span>
-          {dateTag}
+          {/* ✨ 배열에 담긴 뱃지들(최대 2개)을 주르륵 출력합니다 */}
+          {dateTags}
         </div>
         
         <h3 style={{ margin: '0 0 5px 0', fontSize: '18px', fontWeight: 900 }}>{m.shop_name}</h3>
