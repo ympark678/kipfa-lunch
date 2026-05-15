@@ -43,8 +43,6 @@ export default function LunchApp() {
 
   const headerRef = useRef<HTMLDivElement>(null);
   const [stickyTop, setStickyTop] = useState(135);
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [isScrollDown, setIsScrollDown] = useState(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"add" | "edit" | "repick">("add");
@@ -138,25 +136,8 @@ export default function LunchApp() {
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    setIsScrollDown(false);
     setIsMapOpen(false);
   }, [activeTab]);
-
-  useEffect(() => {
-    let lastY = window.scrollY;
-    const handleScroll = () => {
-      const currentY = window.scrollY;
-      setIsScrolled(currentY > 10);
-      if (currentY > 50 && currentY > lastY + 15) {
-        setIsScrollDown(true);
-      } else if (currentY < lastY - 15 || currentY <= 50) {
-        setIsScrollDown(false);
-      }
-      lastY = currentY;
-    };
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
 
   useEffect(() => {
     const updateStickyGap = () => {
@@ -644,8 +625,8 @@ export default function LunchApp() {
         .section-title { position: sticky; z-index: 9998; font-size: 16px; color: var(--text-main); padding: 15px 20px 10px 20px; margin: 0 -20px 15px -20px; font-weight: 800; letter-spacing: -0.5px; background: rgba(var(--bg-main-rgb), 0.95); backdrop-filter: blur(12px); display: flex; align-items: center; }
         .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); margin-left: 12px; }
         
+        /* ✨ 스크롤 시 검색창이 숨겨지는(hidden) 버그 제거를 위해 항상 고정되도록 CSS 정리 완료 */
         .filter-section { position: sticky; z-index: 9998; padding: 10px 20px; margin: 0 -20px 15px -20px; display: flex; flex-direction: column; gap: 12px; background: rgba(var(--bg-main-rgb), 0.95); backdrop-filter: blur(12px); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        .filter-section.hidden { transform: translateY(-150%); pointer-events: none; }
         
         .pill-scroll-container { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; width: 100%; cursor: grab; }
         .pill-scroll-container:active { cursor: grabbing; }
@@ -806,7 +787,8 @@ export default function LunchApp() {
             
             {activeTab === 'all' && (
               <>
-                <div className={`filter-section ${isScrollDown ? 'hidden' : ''}`} style={{ top: stickyTop }}>
+                {/* ✨ hidden 제거되어 언제나 안정적으로 붙어있도록 수정된 필터 섹션 */}
+                <div className="filter-section" style={{ top: stickyTop }}>
                   <div style={{ display: 'flex', gap: '10px' }}>
                     <input 
                       type="text" 
@@ -951,7 +933,6 @@ export default function LunchApp() {
     const isLiked = likes.includes(session?.pin || "");
     const isDisliked = dislikes.includes(session?.pin || "");
 
-    // ✨ 전체 맛집 탭에서는 과거 날짜를 아예 숨김 처리 (이번주/다음주 후보만 노출)
     let dateTag = null;
     const d = new Date(`${String(m.visit_date).replace(/\./g, '-')}T00:00:00`);
     const today = new Date(); today.setHours(0,0,0,0);
@@ -996,7 +977,6 @@ export default function LunchApp() {
             네이버 지도
           </a>
 
-          {/* ✨ 전체 맛집에서는 클릭 불가 (읽기 전용) 처리 완료! */}
           {type === 'pick' ? (
             <div className="reaction-group">
               <button className={`like-btn ${isLiked ? 'active' : ''}`} onClick={e => handleReactionClick(e, m.id, 'toggle_like')} disabled={reactionLoading?.id === m.id}>
