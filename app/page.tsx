@@ -187,7 +187,6 @@ export default function LunchApp() {
     }
   };
 
-  // ✨ 2단 콤보 스마트 검색 로직 적용
   const searchShop = async () => {
     if (!keyword.trim()) return;
     setIsSearching(true);
@@ -213,7 +212,6 @@ export default function LunchApp() {
         (item.roadAddress && item.roadAddress.includes('송파'))
       );
 
-      // ✨ 1차 검색에서 송파구 식당이 없으면 '식당' 키워드를 강제로 붙여서 2차 딥서치!
       if (songpaItems.length === 0) {
         const retryKeyword = `${finalKeyword} 식당`;
         const retryItems = await fetchResults(retryKeyword);
@@ -231,7 +229,7 @@ export default function LunchApp() {
       if (songpaItems.length > 0) {
         setSearchResults(songpaItems);
       } else {
-        setSearchResults(items); // 송파구에 진짜 없으면 원본이라도 띄움
+        setSearchResults(items); 
       }
       
       if (items.length === 0 && songpaItems.length === 0) showToast("검색 결과가 없습니다.");
@@ -693,7 +691,6 @@ export default function LunchApp() {
         .ptr-container { position: fixed; top: 0; left: 0; width: 100%; height: 60px; display: flex; justify-content: center; align-items: center; z-index: 9995; pointer-events: none; }
         .ptr-icon { width: 30px; height: 30px; background: white; border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; justify-content: center; align-items: center; font-size: 16px; transition: transform 0.3s; }
 
-        /* ✨ 스피너 복구! */
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .spinner-mini { width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3); border-top: 3px solid white; border-radius: 50%; animation: spin 1s linear infinite; }
 
@@ -879,7 +876,6 @@ export default function LunchApp() {
               <label>🔍 가게 검색</label>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <input type="text" placeholder="예: 돈까스" value={keyword} onChange={e => setKeyword(e.target.value)} onKeyDown={e => e.key === 'Enter' && searchShop()} style={{ flex: 1 }} />
-                {/* ✨ 검색 시 돋보기 대신 스피너 로딩 노출 */}
                 <button onClick={searchShop} disabled={isSearching} style={{ background: '#3498db', color: 'white', border: 'none', width: '46px', height: '46px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                    {isSearching ? <div className="spinner-mini"></div> : <span style={{ fontSize: '20px' }}>🔍</span>}
                 </button>
@@ -955,6 +951,21 @@ export default function LunchApp() {
     const isLiked = likes.includes(session?.pin || "");
     const isDisliked = dislikes.includes(session?.pin || "");
 
+    // ✨ 전체 맛집 탭에서는 과거 날짜를 아예 숨김 처리 (이번주/다음주 후보만 노출)
+    let dateTag = null;
+    const d = new Date(`${String(m.visit_date).replace(/\./g, '-')}T00:00:00`);
+    const today = new Date(); today.setHours(0,0,0,0);
+    const day = today.getDay(); const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+    const thisS = new Date(today); thisS.setDate(diff);
+    const nextS = new Date(thisS); nextS.setDate(thisS.getDate() + 7);
+    const nextN = new Date(nextS); nextN.setDate(nextS.getDate() + 7);
+
+    if (d >= thisS && d < nextS) {
+      dateTag = <span className="tag" style={{ background: '#e3f2fd', color: '#228be6' }}>🎯 이번주 Pick 후보</span>;
+    } else if (d >= nextS && d < nextN) {
+      dateTag = <span className="tag" style={{ background: '#e3f2fd', color: '#228be6' }}>🗓️ 다음주 Pick 후보</span>;
+    }
+
     return (
       <div 
         id={`shop-card-${m.id}`} 
@@ -970,7 +981,7 @@ export default function LunchApp() {
 
         <div style={{ marginBottom: '10px' }}>
           <span className="tag">{CATEGORY_EMOJI[m.category] || m.category}</span>
-          <span className="tag" style={{ background: '#fff9db', color: '#f08c00' }}>📅 {m.visit_date}</span>
+          {dateTag}
         </div>
         
         <h3 style={{ margin: '0 0 5px 0', fontSize: '18px', fontWeight: 900 }}>{m.shop_name}</h3>
@@ -985,14 +996,26 @@ export default function LunchApp() {
             네이버 지도
           </a>
 
-          <div className="reaction-group">
-            <button className={`like-btn ${isLiked ? 'active' : ''}`} onClick={e => handleReactionClick(e, m.id, 'toggle_like')} disabled={reactionLoading?.id === m.id}>
-              {isLiked ? '❤️' : '🤍'} {likes.length}
-            </button>
-            <button className={`dislike-btn ${isDisliked ? 'active' : ''}`} onClick={e => handleReactionClick(e, m.id, 'toggle_dislike')} disabled={reactionLoading?.id === m.id}>
-              👎 {dislikes.length}
-            </button>
-          </div>
+          {/* ✨ 전체 맛집에서는 클릭 불가 (읽기 전용) 처리 완료! */}
+          {type === 'pick' ? (
+            <div className="reaction-group">
+              <button className={`like-btn ${isLiked ? 'active' : ''}`} onClick={e => handleReactionClick(e, m.id, 'toggle_like')} disabled={reactionLoading?.id === m.id}>
+                {isLiked ? '❤️' : '🤍'} {likes.length}
+              </button>
+              <button className={`dislike-btn ${isDisliked ? 'active' : ''}`} onClick={e => handleReactionClick(e, m.id, 'toggle_dislike')} disabled={reactionLoading?.id === m.id}>
+                👎 {dislikes.length}
+              </button>
+            </div>
+          ) : (
+            <div className="reaction-group">
+              <div className={`like-btn ${isLiked ? 'active' : ''}`} style={{ cursor: 'default' }}>
+                {isLiked ? '❤️' : '🤍'} {likes.length}
+              </div>
+              <div className={`dislike-btn ${isDisliked ? 'active' : ''}`} style={{ cursor: 'default' }}>
+                👎 {dislikes.length}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
