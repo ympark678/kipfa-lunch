@@ -497,7 +497,6 @@ export default function LunchApp() {
       else if (d >= nextS && d < nextN) nw.push(m);
     });
 
-    // ✨ 전체 맛집 탭 (allF) 데이터를 모을 때 모든 과거/현재 행의 방문 날짜(visit_date)를 배열로 저장합니다!
     const uniqueMap = new Map();
     menus.forEach(m => {
       const key = String(m.shop_name).replace(/\s/g, "");
@@ -507,7 +506,7 @@ export default function LunchApp() {
           ...m, 
           likes: m.likes || '', 
           dislikes: m.dislikes || '', 
-          all_dates: m.visit_date ? [m.visit_date] : [] // 모든 날짜 수집용 배열 추가
+          all_dates: m.visit_date ? [m.visit_date] : [] 
         });
       } else {
         const existing = uniqueMap.get(key);
@@ -520,7 +519,6 @@ export default function LunchApp() {
         const currentDislikes = m.dislikes ? m.dislikes.split(',').filter(Boolean) : [];
         existing.dislikes = [...existingDislikes, ...currentDislikes].join(',');
 
-        // 날짜 배열에 누락된 날짜가 있다면 추가
         if (m.visit_date && !existing.all_dates.includes(m.visit_date)) {
           existing.all_dates.push(m.visit_date);
         }
@@ -660,7 +658,9 @@ export default function LunchApp() {
         
         .menu-card { background: white; padding: 20px; border-radius: 18px; border: 1px solid #eee; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); transition: 0.2s; position: relative; cursor: pointer; }
         .menu-card.highlight { border-color: #3498db; box-shadow: 0 0 15px rgba(52,152,219,0.3); transform: scale(1.02); }
-        .tag { background: #f1f3f5; padding: 4px 10px; border-radius: 6px; font-size: 11px; margin-right: 5px; font-weight: 800; color: #495057; display: inline-block; margin-bottom: 4px; }
+        
+        /* ✨ 태그의 마진을 없애고 Flexbox 갭으로 컨트롤하여 깔끔하게 정렬 */
+        .tag { background: #f1f3f5; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; color: #495057; display: inline-flex; align-items: center; }
         
         .reaction-group { display: flex; gap: 6px; }
         .like-btn, .dislike-btn { 
@@ -676,8 +676,9 @@ export default function LunchApp() {
         
         .naver-map-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: #fff; border: 1px solid #eee; padding: 8px 14px; border-radius: 12px; text-decoration: none; color: #333; font-weight: 800; font-size: 13px; }
         
+        /* ✨ 슬라이드 다운 애니메이션 구문 오류 수정 (중요!) */
         .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #2c3e50; color: white; padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 14px; z-index: 100000; animation: slideDown 0.3s; box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
-        @keyframes slideDown { from { from { top: -50px; } to { top: 20px; } }
+        @keyframes slideDown { from { top: -50px; } to { top: 20px; } }
         
         .map-floating-toggle { position: fixed; bottom: calc(30px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); background: #2c3e50; color: white; border: none; padding: 14px 28px; border-radius: 30px; font-weight: 900; box-shadow: 0 8px 20px rgba(0,0,0,0.2); z-index: 9999; cursor: pointer; transition: 0.2s; }
         
@@ -956,7 +957,6 @@ export default function LunchApp() {
     const isLiked = likes.includes(session?.pin || "");
     const isDisliked = dislikes.includes(session?.pin || "");
 
-    // ✨ 전체 맛집 탭에서 여러 날짜(이번주, 다음주)가 겹쳐있을 경우를 위한 배열 렌더링 로직
     let dateTags: React.ReactNode[] = [];
     if (type === 'all') {
       const today = new Date(); today.setHours(0,0,0,0);
@@ -968,7 +968,6 @@ export default function LunchApp() {
       let isThisWeek = false;
       let isNextWeek = false;
 
-      // m.all_dates 배열 안의 모든 날짜를 하나씩 검사합니다.
       const datesToCheck = m.all_dates || (m.visit_date ? [m.visit_date] : []);
 
       datesToCheck.forEach((vd: any) => {
@@ -977,9 +976,9 @@ export default function LunchApp() {
         if (d >= nextS && d < nextN) isNextWeek = true;
       });
 
-      // 만약 둘 다 있다면 두 개의 뱃지를 모두 배열에 담습니다.
-      if (isThisWeek) dateTags.push(<span key="tw" className="tag" style={{ background: '#e3f2fd', color: '#228be6' }}>🎯 이번주 Pick 후보</span>);
-      if (isNextWeek) dateTags.push(<span key="nw" className="tag" style={{ background: '#e3f2fd', color: '#228be6' }}>🗓️ 다음주 Pick 후보</span>);
+      // ✨ 모바일 좁은 화면을 배려하여 "Pick 후보" 글자를 빼고 "이번주 후보"로 텍스트 축소
+      if (isThisWeek) dateTags.push(<span key="tw" className="tag" style={{ background: '#e3f2fd', color: '#228be6' }}>🎯 이번주 후보</span>);
+      if (isNextWeek) dateTags.push(<span key="nw" className="tag" style={{ background: '#e3f2fd', color: '#228be6' }}>🗓️ 다음주 후보</span>);
     }
 
     return (
@@ -988,15 +987,17 @@ export default function LunchApp() {
         className={`menu-card ${highlightedCardId === m.id ? 'highlight' : ''}`} 
         onClick={() => handleShowLocationOnMap(m.shop_name)}
       >
-        <div style={{ position: 'absolute', top: '15px', right: '15px', display: 'flex', gap: '5px' }}>
-          <button onClick={(e) => { e.stopPropagation(); openEditModal(m, false); }} style={{ background: '#f8f9fa', border: '1px solid #ddd', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>수정</button>
-          <button onClick={(e) => { e.stopPropagation(); setDeleteTargetId(m.id); setIsDeleteModalOpen(true); }} style={{ background: '#fff5f5', color: '#e74c3c', border: '1px solid #ffc9c9', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>삭제</button>
-        </div>
-
-        <div style={{ marginBottom: '10px' }}>
-          <span className="tag">{CATEGORY_EMOJI[m.category] || m.category}</span>
-          {/* ✨ 배열에 담긴 뱃지들(최대 2개)을 주르륵 출력합니다 */}
-          {dateTags}
+        {/* ✨ Flexbox를 활용해 버튼과 뱃지가 좁은 화면에서도 겹치지 않고 자연스럽게 배열되도록 구조 전면 수정 */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px', gap: '8px' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', flex: 1 }}>
+            <span className="tag">{CATEGORY_EMOJI[m.category] || m.category}</span>
+            {dateTags}
+          </div>
+          
+          <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+            <button onClick={(e) => { e.stopPropagation(); openEditModal(m, false); }} style={{ background: '#f8f9fa', border: '1px solid #ddd', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>수정</button>
+            <button onClick={(e) => { e.stopPropagation(); setDeleteTargetId(m.id); setIsDeleteModalOpen(true); }} style={{ background: '#fff5f5', color: '#e74c3c', border: '1px solid #ffc9c9', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>삭제</button>
+          </div>
         </div>
         
         <h3 style={{ margin: '0 0 5px 0', fontSize: '18px', fontWeight: 900 }}>{m.shop_name}</h3>
