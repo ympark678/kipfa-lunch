@@ -260,7 +260,6 @@ export default function LunchApp() {
     setPin("");
   };
 
-  // ✨ 중복 체크 시 'edit'이 아닌 'repick(복사 후 새로 추가)' 모드로 변경!
   const checkDuplicate = (type: 'name' | 'url', value: string) => {
     if (modalMode === 'edit' || modalMode === 'repick') return;
     if (value.trim().length < 2) return;
@@ -270,12 +269,11 @@ export default function LunchApp() {
       return target.includes(search) || search.includes(target);
     });
     if (found && confirm(`이미 등록된 맛집인 것 같아요. [${found.shop_name}]\n정보를 불러올까요?`)) {
-      // 🚨 센스 포인트: 기존에 사용자가 골라둔 '날짜'는 덮어쓰지 않고 살려둡니다!
       const currentSelectedDate = formData.visitDate; 
       fillFormWithData(found);
       setFormData(prev => ({ ...prev, visitDate: currentSelectedDate }));
       
-      setModalMode('repick'); // 수정이 아닌 '복사 후 새로 등록' 모드로 진입!
+      setModalMode('repick'); 
       setEditTargetId(null);
     }
   };
@@ -362,7 +360,7 @@ export default function LunchApp() {
       if (modalMode === "edit" && editTargetId) {
         await supabase.from('menus').update(payload).eq('id', editTargetId);
       } else {
-        await supabase.from('menus').insert([payload]); // add 또는 repick인 경우 새롭게 추가!
+        await supabase.from('menus').insert([payload]);
       }
       
       showToast(modalMode === "edit" ? "✨ 수정 완료!" : "✨ 추천 완료!");
@@ -499,14 +497,33 @@ export default function LunchApp() {
       else if (d >= nextS && d < nextN) nw.push(m);
     });
 
+    // ✨ 전체 맛집 탭 (allF) 데이터를 모을 때 모든 과거/현재 행의 좋아요를 합산(SUM)합니다!
     const uniqueMap = new Map();
-    menus.forEach(m => uniqueMap.set(String(m.shop_name).replace(/\s/g, ""), m));
+    menus.forEach(m => {
+      const key = String(m.shop_name).replace(/\s/g, "");
+      
+      if (!uniqueMap.has(key)) {
+        // 처음 등장한(가장 최신) 식당 정보는 기본으로 세팅합니다.
+        uniqueMap.set(key, { ...m, likes: m.likes || '', dislikes: m.dislikes || '' });
+      } else {
+        // 이미 저장된 식당 이름이라면, 과거 데이터의 좋아요/싫어요 목록을 콤마(,)로 이어붙여서 누적시킵니다!
+        const existing = uniqueMap.get(key);
+        
+        const existingLikes = existing.likes ? existing.likes.split(',').filter(Boolean) : [];
+        const currentLikes = m.likes ? m.likes.split(',').filter(Boolean) : [];
+        existing.likes = [...existingLikes, ...currentLikes].join(',');
+
+        const existingDislikes = existing.dislikes ? existing.dislikes.split(',').filter(Boolean) : [];
+        const currentDislikes = m.dislikes ? m.dislikes.split(',').filter(Boolean) : [];
+        existing.dislikes = [...existingDislikes, ...currentDislikes].join(',');
+      }
+    });
     
-    const allF = Array.from(uniqueMap.values()).reverse().filter(m => {
+    const allF = Array.from(uniqueMap.values()).filter((m: any) => {
       const matchC = categoryFilter === "all" || m.category === categoryFilter;
       const matchS = String(m.shop_name).includes(searchQuery) || String(m.menu_details).includes(searchQuery);
       return matchC && matchS;
-    }).sort((a, b) => {
+    }).sort((a: any, b: any) => {
       if (sortOption === 'likes') {
         const likesA = String(a.likes || '').split(',').filter(Boolean).length;
         const likesB = String(b.likes || '').split(',').filter(Boolean).length;
@@ -960,7 +977,6 @@ export default function LunchApp() {
 
         <div style={{ marginBottom: '10px' }}>
           <span className="tag">{CATEGORY_EMOJI[m.category] || m.category}</span>
-          {/* ✨ 전체 맛집 탭에서만 조건부로 이번주/다음주 라벨이 노출되도록 처리 */}
           {dateTag}
         </div>
         
