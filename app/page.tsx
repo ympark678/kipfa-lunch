@@ -43,8 +43,6 @@ export default function LunchApp() {
 
   const headerRef = useRef<HTMLDivElement>(null);
   const [stickyTop, setStickyTop] = useState(135);
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [isScrollDown, setIsScrollDown] = useState(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"add" | "edit" | "repick">("add");
@@ -94,29 +92,26 @@ export default function LunchApp() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
+  // ✨ 날짜 지정에서 '주간(Weekly)' 지정 방식으로 영리하게 변경!
   const dateOptions = useMemo(() => {
     let today = new Date();
     today.setHours(0, 0, 0, 0);
     let day = today.getDay();
-    let diff = today.getDate() - day + (day === 0 ? -6 : 1);
-    let start = new Date(today);
-    start.setDate(diff);
+    let diffToMonday = today.getDate() - day + (day === 0 ? -6 : 1);
+    
+    // DB 에러를 막기 위해 내부적으로는 수요일 날짜를 해당 주의 '대표 날짜'로 씁니다.
+    let thisWeekRepDate = new Date(today);
+    thisWeekRepDate.setDate(diffToMonday + 2); 
+    
+    let nextWeekRepDate = new Date(today);
+    nextWeekRepDate.setDate(diffToMonday + 9); 
 
-    const offsets = [
-      { d: 2, l: '이번주 수' },
-      { d: 4, l: '이번주 금' },
-      { d: 9, l: '다음주 수' },
-      { d: 11, l: '다음주 금' }
+    const formatDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+    return [
+      { label: '🎯 이번주 회식 후보', value: formatDate(thisWeekRepDate) },
+      { label: '🗓️ 다음주 회식 후보', value: formatDate(nextWeekRepDate) }
     ];
-    return offsets.map(o => {
-      let d = new Date(start);
-      d.setDate(start.getDate() + o.d);
-      if (d >= today) {
-        let f = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        return { label: `[${o.l}] ${f}`, value: f };
-      }
-      return null;
-    }).filter(Boolean) as { label: string, value: string }[];
   }, []);
 
   useEffect(() => {
@@ -342,7 +337,7 @@ export default function LunchApp() {
       return (target.includes(search) || search.includes(target)) && m.visit_date === cleanDate && m.id !== editTargetId;
     });
 
-    if (duplicate) return showToast(`🚨 이미 ${cleanDate}에 등록된 맛집입니다!`);
+    if (duplicate) return showToast(`🚨 이미 이 주간에 등록된 맛집입니다!`);
 
     setIsLoading(true);
     const combinedMenus = [formData.menu1, formData.menu2, formData.menu3].filter(Boolean).join(", ");
@@ -628,7 +623,6 @@ export default function LunchApp() {
         .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); margin-left: 12px; }
         
         .filter-section { position: sticky; z-index: 9998; padding: 10px 20px; margin: 0 -20px 15px -20px; display: flex; flex-direction: column; gap: 12px; background: rgba(var(--bg-main-rgb), 0.95); backdrop-filter: blur(12px); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        .filter-section.hidden { transform: translateY(-150%); pointer-events: none; }
         
         .pill-scroll-container { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; width: 100%; cursor: grab; }
         .pill-scroll-container:active { cursor: grabbing; }
@@ -767,7 +761,7 @@ export default function LunchApp() {
           <div>
             {activeTab === 'pick' && (
               <>
-                <h3 className="section-title" style={{ top: stickyTop }}>🎯 이번주 수/금 회식 후보</h3>
+                <h3 className="section-title" style={{ top: stickyTop }}>🎯 이번주 회식 후보</h3>
                 {filteredData.tw.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '30px 20px', border: '2px dashed #dce0e5', borderRadius: '16px', color: '#adb5bd', fontWeight: 700, margin: '10px 0 20px 0' }}>
                     아직 등록된 후보가 없어요 🥲
@@ -776,7 +770,7 @@ export default function LunchApp() {
                   filteredData.tw.map(m => <Card key={m.id} menu={m} type="pick" />)
                 )}
 
-                <h3 className="section-title" style={{ top: stickyTop }}>🗓️ 다음주 수/금 회식 후보</h3>
+                <h3 className="section-title" style={{ top: stickyTop }}>🗓️ 다음주 회식 후보</h3>
                 {filteredData.nw.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '30px 20px', border: '2px dashed #dce0e5', borderRadius: '16px', color: '#adb5bd', fontWeight: 700, margin: '10px 0 20px 0' }}>
                     아직 등록된 후보가 없어요 🥲
@@ -876,7 +870,7 @@ export default function LunchApp() {
             </div>
 
             <div className="form-group">
-              <label>📅 방문 예정일</label>
+              <label>📅 추천 주간</label>
               <select value={formData.visitDate} onChange={e => setFormData({ ...formData, visitDate: e.target.value })}>
                 {dateOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
@@ -934,18 +928,21 @@ export default function LunchApp() {
     const isLiked = likes.includes(session?.pin || "");
     const isDisliked = dislikes.includes(session?.pin || "");
 
+    // 전체 맛집 탭 전용 날짜 라벨 처리 (이번주/다음주 후보만 노출)
     let dateTag = null;
-    const d = new Date(`${String(m.visit_date).replace(/\./g, '-')}T00:00:00`);
-    const today = new Date(); today.setHours(0,0,0,0);
-    const day = today.getDay(); const diff = today.getDate() - day + (day === 0 ? -6 : 1);
-    const thisS = new Date(today); thisS.setDate(diff);
-    const nextS = new Date(thisS); nextS.setDate(thisS.getDate() + 7);
-    const nextN = new Date(nextS); nextN.setDate(nextS.getDate() + 7);
+    if (type === 'all') {
+      const d = new Date(`${String(m.visit_date).replace(/\./g, '-')}T00:00:00`);
+      const today = new Date(); today.setHours(0,0,0,0);
+      const day = today.getDay(); const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+      const thisS = new Date(today); thisS.setDate(diff);
+      const nextS = new Date(thisS); nextS.setDate(thisS.getDate() + 7);
+      const nextN = new Date(nextS); nextN.setDate(nextS.getDate() + 7);
 
-    if (d >= thisS && d < nextS) {
-      dateTag = <span className="tag" style={{ background: '#e3f2fd', color: '#228be6' }}>🎯 이번주 Pick 후보</span>;
-    } else if (d >= nextS && d < nextN) {
-      dateTag = <span className="tag" style={{ background: '#e3f2fd', color: '#228be6' }}>🗓️ 다음주 Pick 후보</span>;
+      if (d >= thisS && d < nextS) {
+        dateTag = <span className="tag" style={{ background: '#e3f2fd', color: '#228be6' }}>🎯 이번주 Pick 후보</span>;
+      } else if (d >= nextS && d < nextN) {
+        dateTag = <span className="tag" style={{ background: '#e3f2fd', color: '#228be6' }}>🗓️ 다음주 Pick 후보</span>;
+      }
     }
 
     return (
@@ -976,7 +973,7 @@ export default function LunchApp() {
             네이버 지도
           </a>
 
-          {/* ✨ 전체 맛집 탭에서는 테두리 없는 텍스트 지표로 표시 */}
+          {/* ✨ 전체 맛집 탭에서는 버튼 모양(테두리/배경)을 완전히 제거하고 텍스트만 표시! */}
           {type === 'pick' ? (
             <div className="reaction-group">
               <button className={`like-btn ${isLiked ? 'active' : ''}`} onClick={e => handleReactionClick(e, m.id, 'toggle_like')} disabled={reactionLoading?.id === m.id}>
