@@ -625,8 +625,8 @@ export default function LunchApp() {
         .section-title { position: sticky; z-index: 9998; font-size: 16px; color: var(--text-main); padding: 15px 20px 10px 20px; margin: 0 -20px 15px -20px; font-weight: 800; letter-spacing: -0.5px; background: rgba(var(--bg-main-rgb), 0.95); backdrop-filter: blur(12px); display: flex; align-items: center; }
         .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); margin-left: 12px; }
         
-        /* ✨ 스크롤 시 검색창이 숨겨지는(hidden) 버그 제거를 위해 항상 고정되도록 CSS 정리 완료 */
         .filter-section { position: sticky; z-index: 9998; padding: 10px 20px; margin: 0 -20px 15px -20px; display: flex; flex-direction: column; gap: 12px; background: rgba(var(--bg-main-rgb), 0.95); backdrop-filter: blur(12px); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .filter-section.hidden { transform: translateY(-150%); pointer-events: none; }
         
         .pill-scroll-container { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; width: 100%; cursor: grab; }
         .pill-scroll-container:active { cursor: grabbing; }
@@ -787,7 +787,6 @@ export default function LunchApp() {
             
             {activeTab === 'all' && (
               <>
-                {/* ✨ hidden 제거되어 언제나 안정적으로 붙어있도록 수정된 필터 섹션 */}
                 <div className="filter-section" style={{ top: stickyTop }}>
                   <div style={{ display: 'flex', gap: '10px' }}>
                     <input 
@@ -953,12 +952,11 @@ export default function LunchApp() {
         className={`menu-card ${highlightedCardId === m.id ? 'highlight' : ''}`} 
         onClick={() => handleShowLocationOnMap(m.shop_name)}
       >
-        {type === 'all' && (
-          <div style={{ position: 'absolute', top: '15px', right: '15px', display: 'flex', gap: '5px' }}>
-            <button onClick={(e) => { e.stopPropagation(); openEditModal(m, false); }} style={{ background: '#f8f9fa', border: '1px solid #ddd', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>수정</button>
-            <button onClick={(e) => { e.stopPropagation(); setDeleteTargetId(m.id); setIsDeleteModalOpen(true); }} style={{ background: '#fff5f5', color: '#e74c3c', border: '1px solid #ffc9c9', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>삭제</button>
-          </div>
-        )}
+        {/* ✨ type === 'all' 조건을 아예 없애서 모든 탭에서 수정/삭제 버튼이 보이도록 변경! */}
+        <div style={{ position: 'absolute', top: '15px', right: '15px', display: 'flex', gap: '5px' }}>
+          <button onClick={(e) => { e.stopPropagation(); openEditModal(m, false); }} style={{ background: '#f8f9fa', border: '1px solid #ddd', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>수정</button>
+          <button onClick={(e) => { e.stopPropagation(); setDeleteTargetId(m.id); setIsDeleteModalOpen(true); }} style={{ background: '#fff5f5', color: '#e74c3c', border: '1px solid #ffc9c9', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>삭제</button>
+        </div>
 
         <div style={{ marginBottom: '10px' }}>
           <span className="tag">{CATEGORY_EMOJI[m.category] || m.category}</span>
