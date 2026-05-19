@@ -602,7 +602,7 @@ export default function LunchApp() {
     <div className="container" style={{ maxWidth: '400px', margin: '100px auto', textAlign: 'center', padding: '20px' }}>
       <h2 style={{ fontWeight: 900, marginBottom: '30px' }}>🏢 KIPFA 점심 추천</h2>
       {toastMessage && (
-        <div className="toast" style={{ position: 'fixed', top: '40px', left: '50%', transform: 'translateX(-50%)', background: '#2c3e50', color: 'white', padding: '12px 24px', borderRadius: '30px', fontWeight: 700, zIndex: 100000, boxShadow: '0 10px 20px rgba(0,0,0,0.2)' }}>
+        <div className="toast" style={{ position: 'fixed', top: '40px', left: '50%', transform: 'translateX(-50%)', background: 'var(--toast-bg)', color: 'var(--toast-text)', padding: '12px 24px', borderRadius: '30px', fontWeight: 700, zIndex: 100000, boxShadow: '0 10px 20px rgba(0,0,0,0.2)' }}>
           {toastMessage}
         </div>
       )}
@@ -613,7 +613,7 @@ export default function LunchApp() {
         value={pin} 
         onChange={e => setPin(e.target.value.slice(0, 4))} 
         onKeyDown={e => e.key === 'Enter' && handleLogin()}
-        style={{ fontSize: '24px', padding: '12px', width: '140px', textAlign: 'center', border: '2px solid #ddd', borderRadius: '12px', marginBottom: '20px' }} 
+        style={{ fontSize: '24px', padding: '12px', width: '140px', textAlign: 'center', background: 'var(--input-bg)', color: 'var(--text-main)', border: '2px solid var(--border)', borderRadius: '12px', marginBottom: '20px' }} 
       />
       <button 
         className="btn" 
@@ -629,21 +629,61 @@ export default function LunchApp() {
     <>
       <style>{`
         @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
+        
+        /* ✨ 완벽한 다크/라이트 모드 지원을 위한 CSS 변수 세팅 */
         :root {
+          color-scheme: light dark;
           --bg-main-rgb: 248, 249, 250;
           --text-main: #2c3e50;
           --text-sub: #7f8c8d;
           --card-bg: #ffffff;
           --border: #e1e5e8;
+          --tag-bg: #f1f3f5;
+          --tag-text: #495057;
+          --input-bg: #ffffff;
+          --modal-search-bg: #f8f9fa;
+          --danger-bg: #fff5f5;
+          --danger-text: #e74c3c;
+          --danger-border: #ffc9c9;
+          --blue-bg: #e3f2fd;
+          --blue-text: #228be6;
+          --empty-text: #adb5bd;
+          --hover-bg: #f8f9fa;
+          --toast-bg: #2c3e50;
+          --toast-text: #ffffff;
         }
-        body { font-family: 'Pretendard', sans-serif; background: rgb(var(--bg-main-rgb)); margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+        @media (prefers-color-scheme: dark) {
+          :root {
+            --bg-main-rgb: 18, 18, 18;
+            --text-main: #e0e0e0;
+            --text-sub: #a0a0a0;
+            --card-bg: #242424;
+            --border: #3a3a3a;
+            --tag-bg: #333333;
+            --tag-text: #e0e0e0;
+            --input-bg: #2a2a2a;
+            --modal-search-bg: #1e1e1e;
+            --danger-bg: #3f1c1c;
+            --danger-text: #ff6b6b;
+            --danger-border: #702b2b;
+            --blue-bg: #1c324a;
+            --blue-text: #66b2ff;
+            --empty-text: #666666;
+            --hover-bg: #333333;
+            --toast-bg: #e0e0e0;
+            --toast-text: #181818;
+          }
+        }
+
+        body { font-family: 'Pretendard', sans-serif; background: rgb(var(--bg-main-rgb)); color: var(--text-main); margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
         .container { max-width: 500px; margin: 0 auto; padding: 20px 20px 100px; }
         
         .sticky-top-area { position: sticky; top: 0; z-index: 9999; background: rgba(var(--bg-main-rgb), 0.95); backdrop-filter: blur(10px); padding: 20px 20px 5px; margin: 0 -20px 10px; transition: all 0.3s ease; border-bottom: 1px solid rgba(0,0,0,0.03); }
         
-        .tabs { display: flex; background: #e9ecef; border-radius: 12px; padding: 4px; margin-bottom: 10px; }
-        .tab { flex: 1; padding: 10px; text-align: center; border-radius: 10px; cursor: pointer; font-weight: 800; font-size: 14px; color: #868e96; transition: 0.2s; }
-        .tab.active { background: #ffffff; color: #3498db; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .tabs { display: flex; background: var(--border); border-radius: 12px; padding: 4px; margin-bottom: 10px; }
+        .tab { flex: 1; padding: 10px; text-align: center; border-radius: 10px; cursor: pointer; font-weight: 800; font-size: 14px; color: var(--text-sub); transition: 0.2s; }
+        .tab.active { background: var(--card-bg); color: #3498db; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
         
         .section-title { position: sticky; z-index: 9998; font-size: 16px; color: var(--text-main); padding: 15px 20px 10px 20px; margin: 0 -20px 15px -20px; font-weight: 800; letter-spacing: -0.5px; background: rgba(var(--bg-main-rgb), 0.95); backdrop-filter: blur(12px); display: flex; align-items: center; }
         .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); margin-left: 12px; }
@@ -656,46 +696,44 @@ export default function LunchApp() {
         .pill-btn { flex-shrink: 0; padding: 8px 16px; border-radius: 30px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-sub); font-weight: 700; font-size: 14px; white-space: nowrap; cursor: pointer; transition: 0.2s; }
         .pill-btn.active { background: #3498db; color: white; border-color: #3498db; }
         
-        .menu-card { background: white; padding: 20px; border-radius: 18px; border: 1px solid #eee; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); transition: 0.2s; position: relative; cursor: pointer; }
+        .menu-card { background: var(--card-bg); padding: 20px; border-radius: 18px; border: 1px solid var(--border); margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); transition: 0.2s; position: relative; cursor: pointer; }
         .menu-card.highlight { border-color: #3498db; box-shadow: 0 0 15px rgba(52,152,219,0.3); transform: scale(1.02); }
         
-        /* ✨ 태그의 마진을 없애고 Flexbox 갭으로 컨트롤하여 깔끔하게 정렬 */
-        .tag { background: #f1f3f5; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; color: #495057; display: inline-flex; align-items: center; }
+        .tag { background: var(--tag-bg); padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; color: var(--tag-text); display: inline-flex; align-items: center; }
         
         .reaction-group { display: flex; gap: 6px; }
         .like-btn, .dislike-btn { 
-          background: white; border: 1.5px solid #e1e5e8; color: #495057; 
+          background: var(--card-bg); border: 1.5px solid var(--border); color: var(--tag-text); 
           padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 800; 
           display: flex; align-items: center; justify-content: center; gap: 5px; 
           cursor: pointer; transition: 0.2s; 
           min-width: 72px; box-sizing: border-box; font-variant-numeric: tabular-nums; 
         }
-        .like-btn { border-color: #ffc9c9; color: #fa5252; }
-        .like-btn.active { background: #fa5252; color: white; border-color: #fa5252; }
-        .dislike-btn.active { background: #868e96; border-color: #868e96; color: white; }
+        .like-btn { border-color: var(--danger-border); color: var(--danger-text); }
+        .like-btn.active { background: var(--danger-text); color: white; border-color: var(--danger-text); }
+        .dislike-btn.active { background: var(--text-sub); border-color: var(--text-sub); color: white; }
         
-        .naver-map-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: #fff; border: 1px solid #eee; padding: 8px 14px; border-radius: 12px; text-decoration: none; color: #333; font-weight: 800; font-size: 13px; }
+        .naver-map-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: var(--card-bg); border: 1px solid var(--border); padding: 8px 14px; border-radius: 12px; text-decoration: none; color: var(--text-main); font-weight: 800; font-size: 13px; }
         
-        /* ✨ 슬라이드 다운 애니메이션 구문 오류 수정 (중요!) */
-        .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #2c3e50; color: white; padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 14px; z-index: 100000; animation: slideDown 0.3s; box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
+        .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: var(--toast-bg); color: var(--toast-text); padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 14px; z-index: 100000; animation: slideDown 0.3s; box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
         @keyframes slideDown { from { top: -50px; } to { top: 20px; } }
         
-        .map-floating-toggle { position: fixed; bottom: calc(30px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); background: #2c3e50; color: white; border: none; padding: 14px 28px; border-radius: 30px; font-weight: 900; box-shadow: 0 8px 20px rgba(0,0,0,0.2); z-index: 9999; cursor: pointer; transition: 0.2s; }
+        .map-floating-toggle { position: fixed; bottom: calc(30px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); background: var(--toast-bg); color: var(--toast-text); border: none; padding: 14px 28px; border-radius: 30px; font-weight: 900; box-shadow: 0 8px 20px rgba(0,0,0,0.2); z-index: 9999; cursor: pointer; transition: 0.2s; }
         
         .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 10000; }
-        .modal-content { background: white; padding: 25px; border-radius: 24px; width: 90%; max-width: 400px; max-height: 85vh; overflow-y: auto; }
+        .modal-content { background: var(--card-bg); padding: 25px; border-radius: 24px; width: 90%; max-width: 400px; max-height: 85vh; overflow-y: auto; color: var(--text-main); }
         
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; font-weight: 800; margin-bottom: 6px; font-size: 13px; }
-        .form-group input, .form-group select { width: 100%; padding: 12px; border: 1px solid #eee; border-radius: 10px; box-sizing: border-box; font-weight: 600; }
+        .form-group input, .form-group select { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 10px; box-sizing: border-box; font-weight: 600; background: var(--input-bg); color: var(--text-main); }
         
-        .search-res { margin-top: 10px; border: 1px solid #eee; border-radius: 10px; overflow: hidden; }
-        .search-item { padding: 12px; border-bottom: 1px solid #eee; cursor: pointer; font-size: 13px; }
+        .search-res { margin-top: 10px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--input-bg); }
+        .search-item { padding: 12px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 13px; color: var(--text-main); }
         .search-item:last-child { border-bottom: none; }
-        .search-item:active { background: #f8f9fa; }
+        .search-item:active { background: var(--hover-bg); }
         
         .ptr-container { position: fixed; top: 0; left: 0; width: 100%; height: 60px; display: flex; justify-content: center; align-items: center; z-index: 9995; pointer-events: none; }
-        .ptr-icon { width: 30px; height: 30px; background: white; border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; justify-content: center; align-items: center; font-size: 16px; transition: transform 0.3s; }
+        .ptr-icon { width: 30px; height: 30px; background: var(--card-bg); border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; justify-content: center; align-items: center; font-size: 16px; transition: transform 0.3s; }
 
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .spinner-mini { width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3); border-top: 3px solid white; border-radius: 50%; animation: spin 1s linear infinite; }
@@ -728,7 +766,7 @@ export default function LunchApp() {
 
       <button 
         className={`map-floating-toggle ${isMapOpen ? 'open' : ''}`}
-        style={isMapOpen ? { background: 'white', color: '#2c3e50', border: '2px solid #2c3e50' } : {}}
+        style={isMapOpen ? { background: 'var(--card-bg)', color: 'var(--text-main)', border: '2px solid var(--text-main)' } : {}}
         onClick={() => {
           setIsMapOpen(!isMapOpen);
           if (!isMapOpen) {
@@ -757,11 +795,11 @@ export default function LunchApp() {
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <h2 style={{ margin: 0, fontWeight: 900, fontSize: '20px' }}>🏢 KIPFA 점심 추천</h2>
-                <button onClick={() => fetchMenus()} style={{ background: '#f1f3f5', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '14px' }}>🔄</button>
+                <button onClick={() => fetchMenus()} style={{ background: 'var(--tag-bg)', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '14px' }}>🔄</button>
               </div>
-              <div style={{ fontSize: '12px', fontWeight: 800, color: '#888' }}>
+              <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-sub)' }}>
                 {session.name}님 👋 
-                <button onClick={handleLogout} style={{ border: 'none', background: '#e9ecef', padding: '4px 8px', borderRadius: '10px', marginLeft: '5px', fontWeight: 800, color: '#495057' }}>로그아웃</button>
+                <button onClick={handleLogout} style={{ border: 'none', background: 'var(--border)', padding: '4px 8px', borderRadius: '10px', marginLeft: '5px', fontWeight: 800, color: 'var(--text-sub)' }}>로그아웃</button>
               </div>
             </div>
             <div className="tabs">
@@ -792,7 +830,7 @@ export default function LunchApp() {
               <>
                 <h3 className="section-title" style={{ top: stickyTop }}>🎯 이번주 회식 후보</h3>
                 {filteredData.tw.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '30px 20px', border: '2px dashed #dce0e5', borderRadius: '16px', color: '#adb5bd', fontWeight: 700, margin: '10px 0 20px 0' }}>
+                  <div style={{ textAlign: 'center', padding: '30px 20px', border: '2px dashed var(--border)', borderRadius: '16px', color: 'var(--empty-text)', fontWeight: 700, margin: '10px 0 20px 0' }}>
                     아직 등록된 후보가 없어요 🥲
                   </div>
                 ) : (
@@ -801,7 +839,7 @@ export default function LunchApp() {
 
                 <h3 className="section-title" style={{ top: stickyTop }}>🗓️ 다음주 회식 후보</h3>
                 {filteredData.nw.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '30px 20px', border: '2px dashed #dce0e5', borderRadius: '16px', color: '#adb5bd', fontWeight: 700, margin: '10px 0 20px 0' }}>
+                  <div style={{ textAlign: 'center', padding: '30px 20px', border: '2px dashed var(--border)', borderRadius: '16px', color: 'var(--empty-text)', fontWeight: 700, margin: '10px 0 20px 0' }}>
                     아직 등록된 후보가 없어요 🥲
                   </div>
                 ) : (
@@ -819,9 +857,9 @@ export default function LunchApp() {
                       placeholder="🔍 가게명 검색..." 
                       value={searchQuery} 
                       onChange={e => setSearchQuery(e.target.value)} 
-                      style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #eee', boxSizing: 'border-box' }} 
+                      style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid var(--border)', boxSizing: 'border-box' }} 
                     />
-                    <select value={sortOption} onChange={e => setSortOption(e.target.value as any)} style={{ width: '110px', padding: '12px', borderRadius: '10px', border: '1px solid #eee' }}>
+                    <select value={sortOption} onChange={e => setSortOption(e.target.value as any)} style={{ width: '110px', padding: '12px', borderRadius: '10px', border: '1px solid var(--border)' }}>
                       <option value="latest">⏱️ 최신순</option>
                       <option value="likes">❤️ 인기순</option>
                     </select>
@@ -850,7 +888,7 @@ export default function LunchApp() {
       </div>
 
       {activeTab === 'pick' && (
-        <button onClick={spinRoulette} style={{ position: 'fixed', bottom: 'calc(100px + env(safe-area-inset-bottom))', right: '20px', width: '56px', height: '56px', borderRadius: '50%', background: '#fff', color: '#333', border: '1px solid #ddd', fontSize: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 9998 }}>🎲</button>
+        <button onClick={spinRoulette} style={{ position: 'fixed', bottom: 'calc(100px + env(safe-area-inset-bottom))', right: '20px', width: '56px', height: '56px', borderRadius: '50%', background: '#3498db', color: '#fff', border: 'none', fontSize: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', zIndex: 9998 }}>🎲</button>
       )}
       <button onClick={openAddModal} style={{ position: 'fixed', bottom: 'calc(30px + env(safe-area-inset-bottom))', right: '20px', width: '56px', height: '56px', borderRadius: '50%', background: '#3498db', color: 'white', border: 'none', fontSize: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', zIndex: 9998 }}>＋</button>
 
@@ -860,9 +898,9 @@ export default function LunchApp() {
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ textAlign: 'center' }}>
             <h3 style={{ marginTop: 0, fontWeight: 900 }}>🎲 오늘의 회식 Pick은?</h3>
             {rouletteResult && (
-              <div style={{ background: '#f8f9fa', padding: '30px 20px', borderRadius: '20px', marginBottom: '20px' }}>
+              <div style={{ background: 'var(--modal-search-bg)', padding: '30px 20px', borderRadius: '20px', marginBottom: '20px' }}>
                 <div style={{ fontSize: '32px', marginBottom: '10px' }}>{CATEGORY_EMOJI[rouletteResult.category]?.split(' ')[0] || '🍽️'}</div>
-                <div style={{ fontSize: '14px', color: '#888', fontWeight: 800, marginBottom: '5px' }}>{rouletteResult.category}</div>
+                <div style={{ fontSize: '14px', color: 'var(--text-sub)', fontWeight: 800, marginBottom: '5px' }}>{rouletteResult.category}</div>
                 <div style={{ fontSize: '24px', fontWeight: 900, color: '#3498db', wordBreak: 'keep-all' }}>{rouletteResult.shop_name}</div>
               </div>
             )}
@@ -878,7 +916,7 @@ export default function LunchApp() {
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <h3 style={{ marginTop: 0, fontWeight: 900 }}>{modalMode === 'edit' ? '✏️ 맛집 수정' : '✨ 새로운 맛집 추천'}</h3>
             
-            <div className="form-group" style={{ background: '#f8f9fa', padding: '15px', borderRadius: '12px' }}>
+            <div className="form-group" style={{ background: 'var(--modal-search-bg)', padding: '15px', borderRadius: '12px' }}>
               <label>🔍 가게 검색</label>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <input type="text" placeholder="예: 돈까스" value={keyword} onChange={e => setKeyword(e.target.value)} onKeyDown={e => e.key === 'Enter' && searchShop()} style={{ flex: 1 }} />
@@ -891,7 +929,7 @@ export default function LunchApp() {
                   {searchResults.map((item, idx) => (
                     <div key={idx} className="search-item" onClick={() => selectShop(item)}>
                       <b dangerouslySetInnerHTML={{ __html: item.title }}></b><br />
-                      <small style={{ color: '#888' }}>{item.category} | {item.address}</small>
+                      <small style={{ color: 'var(--text-sub)' }}>{item.category} | {item.address}</small>
                     </div>
                   ))}
                 </div>
@@ -907,7 +945,7 @@ export default function LunchApp() {
             
             <div className="form-group">
               <label>🏠 가게명</label>
-              <input type="text" value={formData.shopName} disabled style={{ background: '#f1f3f5' }} />
+              <input type="text" value={formData.shopName} disabled style={{ background: 'var(--tag-bg)' }} />
             </div>
             
             <div className="form-group">
@@ -921,7 +959,7 @@ export default function LunchApp() {
               <button onClick={handleModalSubmit} style={{ flex: 2, background: '#3498db', color: 'white', padding: '15px', borderRadius: '12px', border: 'none', fontWeight: 900 }}>
                 {modalMode === 'edit' ? '수정 완료!' : '추천 완료!'}
               </button>
-              <button onClick={() => setIsModalOpen(false)} style={{ flex: 1, background: '#f1f3f5', color: '#495057', padding: '15px', borderRadius: '12px', border: 'none', fontWeight: 900 }}>
+              <button onClick={() => setIsModalOpen(false)} style={{ flex: 1, background: 'var(--tag-bg)', color: 'var(--text-main)', padding: '15px', borderRadius: '12px', border: 'none', fontWeight: 900 }}>
                 취소
               </button>
             </div>
@@ -932,7 +970,7 @@ export default function LunchApp() {
       {isDeleteModalOpen && (
         <div className="modal" onClick={() => setIsDeleteModalOpen(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <h3 style={{ color: '#e74c3c', marginTop: 0, fontWeight: 900 }}>🚨 맛집 삭제 요청</h3>
+            <h3 style={{ color: 'var(--danger-text)', marginTop: 0, fontWeight: 900 }}>🚨 맛집 삭제 요청</h3>
             <div className="form-group">
               <label>삭제 사유</label>
               <select value={deleteReason} onChange={e => setDeleteReason(e.target.value)}>
@@ -942,8 +980,8 @@ export default function LunchApp() {
               </select>
             </div>
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button onClick={submitDeleteRequest} style={{ flex: 1, background: '#e74c3c', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: 800 }}>요청하기</button>
-              <button onClick={() => setIsDeleteModalOpen(false)} style={{ flex: 1, background: '#eee', color: '#333', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: 800 }}>취소</button>
+              <button onClick={submitDeleteRequest} style={{ flex: 1, background: 'var(--danger-text)', color: 'white', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: 800 }}>요청하기</button>
+              <button onClick={() => setIsDeleteModalOpen(false)} style={{ flex: 1, background: 'var(--border)', color: 'var(--text-main)', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: 800 }}>취소</button>
             </div>
           </div>
         </div>
@@ -976,9 +1014,8 @@ export default function LunchApp() {
         if (d >= nextS && d < nextN) isNextWeek = true;
       });
 
-      // ✨ 모바일 좁은 화면을 배려하여 "Pick 후보" 글자를 빼고 "이번주 후보"로 텍스트 축소
-      if (isThisWeek) dateTags.push(<span key="tw" className="tag" style={{ background: '#e3f2fd', color: '#228be6' }}>🎯 이번주 후보</span>);
-      if (isNextWeek) dateTags.push(<span key="nw" className="tag" style={{ background: '#e3f2fd', color: '#228be6' }}>🗓️ 다음주 후보</span>);
+      if (isThisWeek) dateTags.push(<span key="tw" className="tag" style={{ background: 'var(--blue-bg)', color: 'var(--blue-text)' }}>🎯 이번주 후보</span>);
+      if (isNextWeek) dateTags.push(<span key="nw" className="tag" style={{ background: 'var(--blue-bg)', color: 'var(--blue-text)' }}>🗓️ 다음주 후보</span>);
     }
 
     return (
@@ -987,7 +1024,6 @@ export default function LunchApp() {
         className={`menu-card ${highlightedCardId === m.id ? 'highlight' : ''}`} 
         onClick={() => handleShowLocationOnMap(m.shop_name)}
       >
-        {/* ✨ Flexbox를 활용해 버튼과 뱃지가 좁은 화면에서도 겹치지 않고 자연스럽게 배열되도록 구조 전면 수정 */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px', gap: '8px' }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', flex: 1 }}>
             <span className="tag">{CATEGORY_EMOJI[m.category] || m.category}</span>
@@ -995,13 +1031,13 @@ export default function LunchApp() {
           </div>
           
           <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
-            <button onClick={(e) => { e.stopPropagation(); openEditModal(m, false); }} style={{ background: '#f8f9fa', border: '1px solid #ddd', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>수정</button>
-            <button onClick={(e) => { e.stopPropagation(); setDeleteTargetId(m.id); setIsDeleteModalOpen(true); }} style={{ background: '#fff5f5', color: '#e74c3c', border: '1px solid #ffc9c9', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>삭제</button>
+            <button onClick={(e) => { e.stopPropagation(); openEditModal(m, false); }} style={{ background: 'var(--tag-bg)', border: '1px solid var(--border)', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, color: 'var(--text-main)', cursor: 'pointer' }}>수정</button>
+            <button onClick={(e) => { e.stopPropagation(); setDeleteTargetId(m.id); setIsDeleteModalOpen(true); }} style={{ background: 'var(--danger-bg)', color: 'var(--danger-text)', border: '1px solid var(--danger-border)', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>삭제</button>
           </div>
         </div>
         
         <h3 style={{ margin: '0 0 5px 0', fontSize: '18px', fontWeight: 900 }}>{m.shop_name}</h3>
-        <p style={{ margin: 0, color: '#555', fontSize: '14px', fontWeight: 600 }}>{m.menu_details}</p>
+        <p style={{ margin: 0, color: 'var(--text-sub)', fontSize: '14px', fontWeight: 600 }}>{m.menu_details}</p>
         
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '15px' }}>
           <a href={m.shop_url} target="_blank" onClick={e => e.stopPropagation()} className="naver-map-btn">
@@ -1023,10 +1059,10 @@ export default function LunchApp() {
             </div>
           ) : (
             <div style={{ display: 'flex', gap: '14px', alignItems: 'center', paddingRight: '4px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '14px', fontWeight: 800, color: '#495057' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '14px', fontWeight: 800, color: 'var(--tag-text)' }}>
                 {isLiked ? '❤️' : '🤍'} {likes.length}
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '14px', fontWeight: 800, color: '#495057' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '14px', fontWeight: 800, color: 'var(--tag-text)' }}>
                 👎 {dislikes.length}
               </div>
             </div>
