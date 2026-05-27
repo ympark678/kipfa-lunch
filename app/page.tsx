@@ -74,6 +74,8 @@ export default function LunchApp() {
   const [scrollLeft, setScrollLeft] = useState(0);
 
   const [floatingEmojis, setFloatingEmojis] = useState<{ id: number, x: number, y: number, emoji: string }[]>([]);
+  
+  const [refreshRotation, setRefreshRotation] = useState(0);
 
   const [formData, setFormData] = useState({
     visitDate: "",
@@ -163,6 +165,12 @@ export default function LunchApp() {
     }
   };
 
+  const handleManualRefresh = async () => {
+    setRefreshRotation(prev => prev + 360);
+    await fetchMenus(true);
+    showToast("🔄 최신 데이터를 불러왔습니다!");
+  };
+
   const searchShop = async () => {
     if (!keyword.trim()) return;
     setIsSearching(true);
@@ -233,7 +241,7 @@ export default function LunchApp() {
   };
 
   const handleLogin = async () => {
-    if (pin.length !== 4) return showToast("⚠️ 휴대폰번호 뒤 4자리를 입력해주세요.");
+    if (pin.length !== 4) return showToast("⚠️ 4자리 번호를 입력해주세요.");
     setIsLoading(true);
     try {
       const { data, error } = await supabase.from('users').select('name').eq('pin', pin).single();
@@ -598,9 +606,15 @@ export default function LunchApp() {
     categoryScrollRef.current.scrollLeft = scrollLeft - walk;
   };
 
+  // ✨ 로그인 창 안내 문구 추가 완료!
   if (!session) return (
     <div className="container" style={{ maxWidth: '400px', margin: '100px auto', textAlign: 'center', padding: '20px' }}>
-      <h2 style={{ fontWeight: 900, marginBottom: '30px' }}>🏢 KIPFA 점심 추천</h2>
+      <h2 style={{ fontWeight: 900, marginBottom: '10px' }}>🏢 KIPFA 점심 추천</h2>
+      <p style={{ color: 'var(--text-sub)', fontSize: '14px', fontWeight: 600, marginBottom: '30px', lineHeight: '1.5', wordBreak: 'keep-all' }}>
+        본인 확인을 위해<br/>
+        <b style={{ color: 'var(--text-main)', fontSize: '15px' }}>휴대폰 번호 뒷자리 4자리</b>를 입력해 주세요.
+      </p>
+      
       {toastMessage && (
         <div className="toast" style={{ position: 'fixed', top: '40px', left: '50%', transform: 'translateX(-50%)', background: 'var(--toast-bg)', color: 'var(--toast-text)', padding: '12px 24px', borderRadius: '30px', fontWeight: 700, zIndex: 100000, boxShadow: '0 10px 20px rgba(0,0,0,0.2)' }}>
           {toastMessage}
@@ -630,7 +644,6 @@ export default function LunchApp() {
       <style>{`
         @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
         
-        /* ✨ 완벽한 다크/라이트 모드 지원을 위한 CSS 변수 세팅 */
         :root {
           color-scheme: light dark;
           --bg-main-rgb: 248, 249, 250;
@@ -677,6 +690,9 @@ export default function LunchApp() {
         }
 
         body { font-family: 'Pretendard', sans-serif; background: rgb(var(--bg-main-rgb)); color: var(--text-main); margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        input, select, button, textarea { color: var(--text-main); }
+        input::placeholder { color: #adb5bd; }
+
         .container { max-width: 500px; margin: 0 auto; padding: 20px 20px 100px; }
         
         .sticky-top-area { position: sticky; top: 0; z-index: 9999; background: rgba(var(--bg-main-rgb), 0.95); backdrop-filter: blur(10px); padding: 20px 20px 5px; margin: 0 -20px 10px; transition: all 0.3s ease; border-bottom: 1px solid rgba(0,0,0,0.03); }
@@ -795,7 +811,12 @@ export default function LunchApp() {
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <h2 style={{ margin: 0, fontWeight: 900, fontSize: '20px' }}>🏢 KIPFA 점심 추천</h2>
-                <button onClick={() => fetchMenus()} style={{ background: 'var(--tag-bg)', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '14px' }}>🔄</button>
+                <button 
+                  onClick={handleManualRefresh} 
+                  style={{ background: 'var(--tag-bg)', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '14px' }}
+                >
+                  <div style={{ transform: `rotate(${refreshRotation}deg)`, transition: 'transform 0.5s ease-in-out' }}>🔄</div>
+                </button>
               </div>
               <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-sub)' }}>
                 {session.name}님 👋 
@@ -888,7 +909,7 @@ export default function LunchApp() {
       </div>
 
       {activeTab === 'pick' && (
-        <button onClick={spinRoulette} style={{ position: 'fixed', bottom: 'calc(100px + env(safe-area-inset-bottom))', right: '20px', width: '56px', height: '56px', borderRadius: '50%', background: '#3498db', color: '#fff', border: 'none', fontSize: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', zIndex: 9998 }}>🎲</button>
+        <button onClick={spinRoulette} style={{ position: 'fixed', bottom: 'calc(100px + env(safe-area-inset-bottom))', right: '20px', width: '56px', height: '56px', borderRadius: '50%', background: '#3498db', color: '#fff', border: 'none', fontSize: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 9998 }}>🎲</button>
       )}
       <button onClick={openAddModal} style={{ position: 'fixed', bottom: 'calc(30px + env(safe-area-inset-bottom))', right: '20px', width: '56px', height: '56px', borderRadius: '50%', background: '#3498db', color: 'white', border: 'none', fontSize: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', zIndex: 9998 }}>＋</button>
 
