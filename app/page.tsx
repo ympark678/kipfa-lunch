@@ -26,6 +26,145 @@ const mapCategory = (naverCategory: string) => {
   return '기타';
 };
 
+// ✨ 앱 전체에 적용될 공통 CSS (로그인 화면, 메인 화면 모두 적용)
+const appStyles = `
+  @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
+  
+  :root {
+    color-scheme: light dark;
+    --bg-main-rgb: 248, 249, 250;
+    --text-main: #2c3e50;
+    --text-sub: #7f8c8d;
+    --card-bg: #ffffff;
+    --border: #e1e5e8;
+    --tag-bg: #f1f3f5;
+    --tag-text: #495057;
+    --input-bg: #ffffff;
+    --modal-search-bg: #f8f9fa;
+    --danger-bg: #fff5f5;
+    --danger-text: #e74c3c;
+    --danger-border: #ffc9c9;
+    --blue-bg: #e3f2fd;
+    --blue-text: #228be6;
+    --empty-text: #adb5bd;
+    --hover-bg: #f8f9fa;
+    --toast-bg: #2c3e50;
+    --toast-text: #ffffff;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg-main-rgb: 18, 18, 18;
+      --text-main: #e0e0e0;
+      --text-sub: #a0a0a0;
+      --card-bg: #242424;
+      --border: #3a3a3a;
+      --tag-bg: #333333;
+      --tag-text: #e0e0e0;
+      --input-bg: #2a2a2a;
+      --modal-search-bg: #1e1e1e;
+      --danger-bg: #3f1c1c;
+      --danger-text: #ff6b6b;
+      --danger-border: #702b2b;
+      --blue-bg: #1c324a;
+      --blue-text: #66b2ff;
+      --empty-text: #666666;
+      --hover-bg: #333333;
+      --toast-bg: #e0e0e0;
+      --toast-text: #181818;
+    }
+  }
+
+  body { font-family: 'Pretendard', sans-serif; background: rgb(var(--bg-main-rgb)); color: var(--text-main); margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  input, select, button, textarea { color: var(--text-main); }
+  input::placeholder { color: #adb5bd; }
+
+  /* 입력창 포커스 애니메이션 */
+  .pin-input:focus {
+    border-color: #3498db !important;
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(52,152,219,0.15);
+  }
+
+  .container { max-width: 500px; margin: 0 auto; padding: 20px 20px 100px; }
+  
+  .sticky-top-area { position: sticky; top: 0; z-index: 9999; background: rgba(var(--bg-main-rgb), 0.95); backdrop-filter: blur(10px); padding: 20px 20px 5px; margin: 0 -20px 10px; transition: all 0.3s ease; border-bottom: 1px solid rgba(0,0,0,0.03); }
+  
+  .tabs { display: flex; background: var(--border); border-radius: 12px; padding: 4px; margin-bottom: 10px; }
+  .tab { flex: 1; padding: 10px; text-align: center; border-radius: 10px; cursor: pointer; font-weight: 800; font-size: 14px; color: var(--text-sub); transition: 0.2s; }
+  .tab.active { background: var(--card-bg); color: #3498db; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+  
+  .section-title { position: sticky; z-index: 9998; font-size: 16px; color: var(--text-main); padding: 15px 20px 10px 20px; margin: 0 -20px 15px -20px; font-weight: 800; letter-spacing: -0.5px; background: rgba(var(--bg-main-rgb), 0.95); backdrop-filter: blur(12px); display: flex; align-items: center; }
+  .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); margin-left: 12px; }
+  
+  .filter-section { position: sticky; z-index: 9998; padding: 10px 20px; margin: 0 -20px 15px -20px; display: flex; flex-direction: column; gap: 12px; background: rgba(var(--bg-main-rgb), 0.95); backdrop-filter: blur(12px); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+  
+  .pill-scroll-container { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; width: 100%; cursor: grab; }
+  .pill-scroll-container:active { cursor: grabbing; }
+  .pill-scroll-container::-webkit-scrollbar { display: none; }
+  .pill-btn { flex-shrink: 0; padding: 8px 16px; border-radius: 30px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-sub); font-weight: 700; font-size: 14px; white-space: nowrap; cursor: pointer; transition: 0.2s; }
+  .pill-btn.active { background: #3498db; color: white; border-color: #3498db; }
+  
+  .menu-card { background: var(--card-bg); padding: 20px; border-radius: 18px; border: 1px solid var(--border); margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); transition: 0.2s; position: relative; cursor: pointer; }
+  .menu-card.highlight { border-color: #3498db; box-shadow: 0 0 15px rgba(52,152,219,0.3); transform: scale(1.02); }
+  
+  .tag { background: var(--tag-bg); padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; color: var(--tag-text); display: inline-flex; align-items: center; }
+  
+  .reaction-group { display: flex; gap: 6px; }
+  .like-btn, .dislike-btn { 
+    background: var(--card-bg); border: 1.5px solid var(--border); color: var(--tag-text); 
+    padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 800; 
+    display: flex; align-items: center; justify-content: center; gap: 5px; 
+    cursor: pointer; transition: 0.2s; 
+    min-width: 72px; box-sizing: border-box; font-variant-numeric: tabular-nums; 
+  }
+  .like-btn { border-color: var(--danger-border); color: var(--danger-text); }
+  .like-btn.active { background: var(--danger-text); color: white; border-color: var(--danger-text); }
+  .dislike-btn.active { background: var(--text-sub); border-color: var(--text-sub); color: white; }
+  
+  .naver-map-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: var(--card-bg); border: 1px solid var(--border); padding: 8px 14px; border-radius: 12px; text-decoration: none; color: var(--text-main); font-weight: 800; font-size: 13px; }
+  
+  .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: var(--toast-bg); color: var(--toast-text); padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 14px; z-index: 100000; animation: slideDown 0.3s; box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
+  @keyframes slideDown { from { top: -50px; } to { top: 20px; } }
+  
+  .map-floating-toggle { position: fixed; bottom: calc(30px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); background: var(--toast-bg); color: var(--toast-text); border: none; padding: 14px 28px; border-radius: 30px; font-weight: 900; box-shadow: 0 8px 20px rgba(0,0,0,0.2); z-index: 9999; cursor: pointer; transition: 0.2s; }
+  
+  .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 10000; }
+  .modal-content { background: var(--card-bg); padding: 25px; border-radius: 24px; width: 90%; max-width: 400px; max-height: 85vh; overflow-y: auto; color: var(--text-main); }
+  
+  .form-group { margin-bottom: 15px; }
+  .form-group label { display: block; font-weight: 800; margin-bottom: 6px; font-size: 13px; }
+  .form-group input, .form-group select { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 10px; box-sizing: border-box; font-weight: 600; background: var(--input-bg); color: var(--text-main); }
+  
+  .search-res { margin-top: 10px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--input-bg); }
+  .search-item { padding: 12px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 13px; color: var(--text-main); }
+  .search-item:last-child { border-bottom: none; }
+  .search-item:active { background: var(--hover-bg); }
+  
+  .ptr-container { position: fixed; top: 0; left: 0; width: 100%; height: 60px; display: flex; justify-content: center; align-items: center; z-index: 9995; pointer-events: none; }
+  .ptr-icon { width: 30px; height: 30px; background: var(--card-bg); border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; justify-content: center; align-items: center; font-size: 16px; transition: transform 0.3s; }
+
+  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  .spinner-mini { width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3); border-top: 3px solid white; border-radius: 50%; animation: spin 1s linear infinite; }
+
+  .floating-emoji {
+    position: fixed;
+    font-size: 50px;
+    pointer-events: none;
+    z-index: 100000;
+    transform: translate(-50%, -50%);
+    animation: floatUp 1s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    text-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  }
+  @keyframes floatUp {
+    0% { transform: translate(-50%, -50%) scale(0.2); opacity: 0; }
+    15% { transform: translate(-50%, -70%) scale(1.2); opacity: 1; }
+    30% { transform: translate(-50%, -80%) scale(1); opacity: 1; }
+    80% { transform: translate(-50%, -130%) scale(1); opacity: 1; }
+    100% { transform: translate(-50%, -160%) scale(0.8); opacity: 0; }
+  }
+`;
+
 export default function LunchApp() {
   const [session, setSession] = useState<{ pin: string, name: string } | null>(null);
   const [pin, setPin] = useState("");
@@ -241,7 +380,7 @@ export default function LunchApp() {
   };
 
   const handleLogin = async () => {
-    if (pin.length !== 4) return showToast("⚠️ 4자리 번호를 입력해주세요.");
+    if (pin.length !== 4) return showToast("⚠️ 휴대폰 번호 뒤 4자리를 입력해주세요.");
     setIsLoading(true);
     try {
       const { data, error } = await supabase.from('users').select('name').eq('pin', pin).single();
@@ -606,171 +745,63 @@ export default function LunchApp() {
     categoryScrollRef.current.scrollLeft = scrollLeft - walk;
   };
 
-  // ✨ 로그인 창 안내 문구 추가 완료!
+  // ✨ 개선된 로그인 창 UI (디자인 및 위계질서 적용)
   if (!session) return (
-    <div className="container" style={{ maxWidth: '400px', margin: '100px auto', textAlign: 'center', padding: '20px' }}>
-      <h2 style={{ fontWeight: 900, marginBottom: '10px' }}>🏢 KIPFA 점심 추천</h2>
-      <p style={{ color: 'var(--text-sub)', fontSize: '14px', fontWeight: 600, marginBottom: '30px', lineHeight: '1.5', wordBreak: 'keep-all' }}>
-        본인 확인을 위해<br/>
-        <b style={{ color: 'var(--text-main)', fontSize: '15px' }}>휴대폰 번호 뒷자리 4자리</b>를 입력해 주세요.
-      </p>
-      
-      {toastMessage && (
-        <div className="toast" style={{ position: 'fixed', top: '40px', left: '50%', transform: 'translateX(-50%)', background: 'var(--toast-bg)', color: 'var(--toast-text)', padding: '12px 24px', borderRadius: '30px', fontWeight: 700, zIndex: 100000, boxShadow: '0 10px 20px rgba(0,0,0,0.2)' }}>
-          {toastMessage}
+    <>
+      <style>{appStyles}</style>
+      <div className="container" style={{ maxWidth: '400px', margin: '80px auto', textAlign: 'center', padding: '20px' }}>
+        <h2 style={{ fontSize: '28px', fontWeight: 900, marginBottom: '15px', color: 'var(--text-main)' }}>🏢 KIPFA 점심 추천</h2>
+        <p style={{ color: 'var(--text-sub)', fontSize: '15px', fontWeight: 500, marginBottom: '40px', lineHeight: '1.6', wordBreak: 'keep-all' }}>
+          본인 확인을 위해<br/>
+          <b style={{ color: 'var(--text-main)', fontWeight: 800 }}>휴대폰 번호 뒷자리 4자리</b>를 입력해 주세요.
+        </p>
+        
+        {toastMessage && (
+          <div className="toast" style={{ position: 'fixed', top: '40px', left: '50%', transform: 'translateX(-50%)', background: 'var(--toast-bg)', color: 'var(--toast-text)', padding: '12px 24px', borderRadius: '30px', fontWeight: 700, zIndex: 100000, boxShadow: '0 10px 20px rgba(0,0,0,0.2)' }}>
+            {toastMessage}
+          </div>
+        )}
+
+        {/* 입력창과 버튼을 하나로 묶어주는 카드 배경 추가 */}
+        <div style={{ background: 'var(--card-bg)', padding: '30px 20px', borderRadius: '24px', boxShadow: '0 8px 24px rgba(0,0,0,0.06)', border: '1px solid var(--border)' }}>
+          <input 
+            type="number" 
+            className="pin-input" 
+            placeholder="0000" 
+            value={pin} 
+            onChange={e => setPin(e.target.value.slice(0, 4))} 
+            onKeyDown={e => e.key === 'Enter' && handleLogin()}
+            style={{ 
+              fontSize: '28px', 
+              letterSpacing: '8px', 
+              padding: '16px', 
+              width: '100%', 
+              boxSizing: 'border-box',
+              textAlign: 'center', 
+              background: 'var(--input-bg)', 
+              color: 'var(--text-main)', 
+              border: '2px solid #ced4da', /* 뚜렷한 테두리 */
+              borderRadius: '16px', 
+              marginBottom: '20px',
+              transition: 'all 0.2s ease',
+              fontWeight: 800
+            }} 
+          />
+          <button 
+            className="btn" 
+            onClick={handleLogin} 
+            style={{ background: '#3498db', color: 'white', width: '100%', padding: '16px', borderRadius: '16px', border: 'none', fontWeight: 800, fontSize: '16px', boxShadow: '0 4px 12px rgba(52,152,219,0.3)', cursor: 'pointer' }}
+          >
+            {isLoading ? "확인중..." : "입장하기"}
+          </button>
         </div>
-      )}
-      <input 
-        type="number" 
-        className="pin-input" 
-        placeholder="0000" 
-        value={pin} 
-        onChange={e => setPin(e.target.value.slice(0, 4))} 
-        onKeyDown={e => e.key === 'Enter' && handleLogin()}
-        style={{ fontSize: '24px', padding: '12px', width: '140px', textAlign: 'center', background: 'var(--input-bg)', color: 'var(--text-main)', border: '2px solid var(--border)', borderRadius: '12px', marginBottom: '20px' }} 
-      />
-      <button 
-        className="btn" 
-        onClick={handleLogin} 
-        style={{ background: '#3498db', color: 'white', width: '100%', padding: '14px', borderRadius: '12px', border: 'none', fontWeight: 800 }}
-      >
-        {isLoading ? "확인중..." : "입장하기"}
-      </button>
-    </div>
+      </div>
+    </>
   );
 
   return (
     <>
-      <style>{`
-        @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
-        
-        :root {
-          color-scheme: light dark;
-          --bg-main-rgb: 248, 249, 250;
-          --text-main: #2c3e50;
-          --text-sub: #7f8c8d;
-          --card-bg: #ffffff;
-          --border: #e1e5e8;
-          --tag-bg: #f1f3f5;
-          --tag-text: #495057;
-          --input-bg: #ffffff;
-          --modal-search-bg: #f8f9fa;
-          --danger-bg: #fff5f5;
-          --danger-text: #e74c3c;
-          --danger-border: #ffc9c9;
-          --blue-bg: #e3f2fd;
-          --blue-text: #228be6;
-          --empty-text: #adb5bd;
-          --hover-bg: #f8f9fa;
-          --toast-bg: #2c3e50;
-          --toast-text: #ffffff;
-        }
-
-        @media (prefers-color-scheme: dark) {
-          :root {
-            --bg-main-rgb: 18, 18, 18;
-            --text-main: #e0e0e0;
-            --text-sub: #a0a0a0;
-            --card-bg: #242424;
-            --border: #3a3a3a;
-            --tag-bg: #333333;
-            --tag-text: #e0e0e0;
-            --input-bg: #2a2a2a;
-            --modal-search-bg: #1e1e1e;
-            --danger-bg: #3f1c1c;
-            --danger-text: #ff6b6b;
-            --danger-border: #702b2b;
-            --blue-bg: #1c324a;
-            --blue-text: #66b2ff;
-            --empty-text: #666666;
-            --hover-bg: #333333;
-            --toast-bg: #e0e0e0;
-            --toast-text: #181818;
-          }
-        }
-
-        body { font-family: 'Pretendard', sans-serif; background: rgb(var(--bg-main-rgb)); color: var(--text-main); margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-        input, select, button, textarea { color: var(--text-main); }
-        input::placeholder { color: #adb5bd; }
-
-        .container { max-width: 500px; margin: 0 auto; padding: 20px 20px 100px; }
-        
-        .sticky-top-area { position: sticky; top: 0; z-index: 9999; background: rgba(var(--bg-main-rgb), 0.95); backdrop-filter: blur(10px); padding: 20px 20px 5px; margin: 0 -20px 10px; transition: all 0.3s ease; border-bottom: 1px solid rgba(0,0,0,0.03); }
-        
-        .tabs { display: flex; background: var(--border); border-radius: 12px; padding: 4px; margin-bottom: 10px; }
-        .tab { flex: 1; padding: 10px; text-align: center; border-radius: 10px; cursor: pointer; font-weight: 800; font-size: 14px; color: var(--text-sub); transition: 0.2s; }
-        .tab.active { background: var(--card-bg); color: #3498db; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-        
-        .section-title { position: sticky; z-index: 9998; font-size: 16px; color: var(--text-main); padding: 15px 20px 10px 20px; margin: 0 -20px 15px -20px; font-weight: 800; letter-spacing: -0.5px; background: rgba(var(--bg-main-rgb), 0.95); backdrop-filter: blur(12px); display: flex; align-items: center; }
-        .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); margin-left: 12px; }
-        
-        .filter-section { position: sticky; z-index: 9998; padding: 10px 20px; margin: 0 -20px 15px -20px; display: flex; flex-direction: column; gap: 12px; background: rgba(var(--bg-main-rgb), 0.95); backdrop-filter: blur(12px); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        
-        .pill-scroll-container { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; width: 100%; cursor: grab; }
-        .pill-scroll-container:active { cursor: grabbing; }
-        .pill-scroll-container::-webkit-scrollbar { display: none; }
-        .pill-btn { flex-shrink: 0; padding: 8px 16px; border-radius: 30px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-sub); font-weight: 700; font-size: 14px; white-space: nowrap; cursor: pointer; transition: 0.2s; }
-        .pill-btn.active { background: #3498db; color: white; border-color: #3498db; }
-        
-        .menu-card { background: var(--card-bg); padding: 20px; border-radius: 18px; border: 1px solid var(--border); margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); transition: 0.2s; position: relative; cursor: pointer; }
-        .menu-card.highlight { border-color: #3498db; box-shadow: 0 0 15px rgba(52,152,219,0.3); transform: scale(1.02); }
-        
-        .tag { background: var(--tag-bg); padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; color: var(--tag-text); display: inline-flex; align-items: center; }
-        
-        .reaction-group { display: flex; gap: 6px; }
-        .like-btn, .dislike-btn { 
-          background: var(--card-bg); border: 1.5px solid var(--border); color: var(--tag-text); 
-          padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 800; 
-          display: flex; align-items: center; justify-content: center; gap: 5px; 
-          cursor: pointer; transition: 0.2s; 
-          min-width: 72px; box-sizing: border-box; font-variant-numeric: tabular-nums; 
-        }
-        .like-btn { border-color: var(--danger-border); color: var(--danger-text); }
-        .like-btn.active { background: var(--danger-text); color: white; border-color: var(--danger-text); }
-        .dislike-btn.active { background: var(--text-sub); border-color: var(--text-sub); color: white; }
-        
-        .naver-map-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: var(--card-bg); border: 1px solid var(--border); padding: 8px 14px; border-radius: 12px; text-decoration: none; color: var(--text-main); font-weight: 800; font-size: 13px; }
-        
-        .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: var(--toast-bg); color: var(--toast-text); padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 14px; z-index: 100000; animation: slideDown 0.3s; box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
-        @keyframes slideDown { from { top: -50px; } to { top: 20px; } }
-        
-        .map-floating-toggle { position: fixed; bottom: calc(30px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); background: var(--toast-bg); color: var(--toast-text); border: none; padding: 14px 28px; border-radius: 30px; font-weight: 900; box-shadow: 0 8px 20px rgba(0,0,0,0.2); z-index: 9999; cursor: pointer; transition: 0.2s; }
-        
-        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 10000; }
-        .modal-content { background: var(--card-bg); padding: 25px; border-radius: 24px; width: 90%; max-width: 400px; max-height: 85vh; overflow-y: auto; color: var(--text-main); }
-        
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; font-weight: 800; margin-bottom: 6px; font-size: 13px; }
-        .form-group input, .form-group select { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 10px; box-sizing: border-box; font-weight: 600; background: var(--input-bg); color: var(--text-main); }
-        
-        .search-res { margin-top: 10px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--input-bg); }
-        .search-item { padding: 12px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 13px; color: var(--text-main); }
-        .search-item:last-child { border-bottom: none; }
-        .search-item:active { background: var(--hover-bg); }
-        
-        .ptr-container { position: fixed; top: 0; left: 0; width: 100%; height: 60px; display: flex; justify-content: center; align-items: center; z-index: 9995; pointer-events: none; }
-        .ptr-icon { width: 30px; height: 30px; background: var(--card-bg); border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; justify-content: center; align-items: center; font-size: 16px; transition: transform 0.3s; }
-
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .spinner-mini { width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3); border-top: 3px solid white; border-radius: 50%; animation: spin 1s linear infinite; }
-
-        .floating-emoji {
-          position: fixed;
-          font-size: 50px;
-          pointer-events: none;
-          z-index: 100000;
-          transform: translate(-50%, -50%);
-          animation: floatUp 1s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-          text-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        }
-        @keyframes floatUp {
-          0% { transform: translate(-50%, -50%) scale(0.2); opacity: 0; }
-          15% { transform: translate(-50%, -70%) scale(1.2); opacity: 1; }
-          30% { transform: translate(-50%, -80%) scale(1); opacity: 1; }
-          80% { transform: translate(-50%, -130%) scale(1); opacity: 1; }
-          100% { transform: translate(-50%, -160%) scale(0.8); opacity: 0; }
-        }
-      `}</style>
+      <style>{appStyles}</style>
 
       {toastMessage && <div className="toast">{toastMessage}</div>}
 
