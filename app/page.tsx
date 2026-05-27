@@ -233,7 +233,7 @@ export default function LunchApp() {
   };
 
   const handleLogin = async () => {
-    if (pin.length !== 4) return showToast("⚠️ 4자리 번호를 입력해주세요.");
+    if (pin.length !== 4) return showToast("⚠️ 휴대폰번호 뒤 4자리를 입력해주세요.");
     setIsLoading(true);
     try {
       const { data, error } = await supabase.from('users').select('name').eq('pin', pin).single();
